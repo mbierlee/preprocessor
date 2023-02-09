@@ -1,0 +1,16 @@
+.dub
+docs.json
+__dummy.html
+docs/
+/preprocessor
+preprocessor.so
+preprocessor.dylib
+preprocessor.dll
+preprocessor.a
+preprocessor.lib
+preprocessor-test-*
+*.exe
+*.pdb
+*.o
+*.obj
+*.lst

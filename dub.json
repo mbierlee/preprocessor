@@ -1,0 +1,17 @@
+{
+  "name": "preprocessor",
+  "description": "A lanuage agnostic C-like preprocessor for D",
+  "copyright": "Copyright © 2023, Mike Bierlee",
+  "authors": ["Mike Bierlee"],
+  "license": "mit",
+  "configurations": [
+    {
+      "name": "build",
+      "targetType": "library"
+    },
+    {
+      "name": "unittest",
+      "targetType": "library"
+    }
+  ]
+}
