@@ -4,6 +4,7 @@
   "copyright": "Copyright © 2023, Mike Bierlee",
   "authors": ["Mike Bierlee"],
   "license": "mit",
+  "targetPath": "bin",
   "configurations": [
     {
       "name": "build",
