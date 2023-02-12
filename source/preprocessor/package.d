@@ -280,7 +280,34 @@ version (unittest) {
         assertThrown!ParseException(preprocess(context));
     }
 
-    //TODO: test when include does not start with " or <
-    //TODO: test ignoring of unknown directive
-    //TODO: test when included file does not exist
+    @("Fail to include when filename does not start with quote or <")
+    unittest {
+        auto main = "#include 'coolfile.c'";
+        auto context = BuildContext([
+                "main.txt": main
+            ]);
+
+        assertThrown!ParseException(preprocess(context));
+    }
+
+    @("Fail to include when filename does not start with quote or <")
+    unittest {
+        auto main = "#include <notfound.404>";
+        auto context = BuildContext([
+                "main.txt": main
+            ]);
+
+        assertThrown!PreprocessException(preprocess(context));
+    }
+
+    @("Ignore unknown directive")
+    unittest {
+        auto main = "#banana rama";
+        auto context = BuildContext([
+                "main.txt": main
+            ]);
+
+        auto result = preprocess(context).sources["main.txt"];
+        assert(result == main);
+    }
 }
