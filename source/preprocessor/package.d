@@ -36,6 +36,14 @@ struct BuildContext {
     // Sources to be processed
     SourceMap sources;
 
+    /** 
+     * When specified, only these sources will be processed.
+     * Sources specified in "sources" will still be able to be included
+     * and processed, but are treated as libraries.
+     * When empty, all sources in "sources" will be processed.
+     */
+    SourceMap mainSources;
+
     // The maximum amount of inclusions allowed. This is to prevent 
     // an endless inclusion cycle.
     uint inclusionLimit = 4000;
@@ -45,6 +53,7 @@ struct BuildContext {
  * Result with modified source files.
  */
 struct ProcessingResult {
+    // The processed (main) sources.
     SourceMap sources;
 }
 
@@ -89,7 +98,9 @@ class PreprocessException : Exception {
 
 ProcessingResult preprocess(const ref BuildContext context) {
     ProcessingResult result;
-    foreach (Name name, SourceCode source; context.sources) {
+    const(SourceMap) sources = context.mainSources.length > 0 ? context.mainSources
+        : context.sources;
+    foreach (Name name, SourceCode source; sources) {
         result.sources[name] = processFile(name, source, context);
     }
 
@@ -233,6 +244,25 @@ version (unittest) {
 
         auto result = preprocess(context).sources["main.txt"];
         assert(result == main);
+    }
+
+    @("Only process specified set of main sources")
+    unittest {
+        auto main = "#include <libby>";
+        auto libby = "#include <roses>";
+        auto roses = "Roses";
+
+        BuildContext context;
+        context.sources = [
+            "libby": libby,
+            "roses": roses
+        ];
+        context.mainSources = [
+            "main": main
+        ];
+
+        auto result = preprocess(context).sources;
+        assert(result["main"] == roses);
     }
 }
 
