@@ -222,6 +222,20 @@ private void deb(string message) {
     writeln(message);
 }
 
+// Generic tests
+version (unittest) {
+    @("Ignore unknown directive")
+    unittest {
+        auto main = "#banana rama";
+        auto context = BuildContext([
+                "main.txt": main
+            ]);
+
+        auto result = preprocess(context).sources["main.txt"];
+        assert(result == main);
+    }
+}
+
 // Includes tests
 version (unittest) {
     import std.exception : assertThrown;
@@ -319,17 +333,6 @@ version (unittest) {
             ]);
 
         assertThrown!PreprocessException(preprocess(context));
-    }
-
-    @("Ignore unknown directive")
-    unittest {
-        auto main = "#banana rama";
-        auto context = BuildContext([
-                "main.txt": main
-            ]);
-
-        auto result = preprocess(context).sources["main.txt"];
-        assert(result == main);
     }
 
     @("Prevent endless inclusion cycle")
