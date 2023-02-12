@@ -15,6 +15,7 @@ module preprocessor;
 import std.algorithm : canFind;
 import std.conv : to;
 import std.array : replaceInPlace;
+import std.path : dirName;
 
 alias SourceCode = string;
 alias Name = string;
@@ -131,16 +132,26 @@ private void processInclude(ref ParseContext parseCtx, const ref BuildContext bu
     parseCtx.inclusions += 1;
     parseCtx.codePos -= 1;
     skipWhiteSpaceTillEol(parseCtx);
-    if (!['"', '<'].canFind(parseCtx.source[parseCtx.codePos++])) {
+    char startChr = parseCtx.source[parseCtx.codePos];
+    bool absoluteInclusion;
+    if (startChr == '"') {
+        absoluteInclusion = false;
+    } else if (startChr == '<') {
+        absoluteInclusion = true;
+    } else {
         throw new ParseException(parseCtx, "Failed to parse include directive: Expected \" or <.");
     }
 
+    parseCtx.codePos += 1;
     const string includeName = collectToken(parseCtx, ['"', '>']);
     parseCtx.directiveEnd = parseCtx.codePos;
 
-    //TODO: make a distinction between < and " semantics
-
     auto includeSource = includeName in buildCtx.sources;
+    if (includeSource is null && !absoluteInclusion) {
+        string currentDir = parseCtx.name.dirName;
+        includeSource = currentDir ~ "/" ~ includeName in buildCtx.sources;
+    }
+
     if (includeSource is null) {
         throw new PreprocessException(parseCtx, parseCtx.directiveStart, "Failed to include '" ~ includeName ~ "': It does not exist.");
     }
@@ -330,5 +341,20 @@ version (unittest) {
         context.inclusionLimit = 5;
 
         assertThrown!PreprocessException(preprocess(context));
+    }
+
+    @("Inclusions using quotes are directory-aware and relative")
+    unittest {
+        auto main = "#include \"secondary.txt\"";
+        auto secondary = "Heey";
+        auto context = BuildContext([
+            "cool/main.txt": main,
+            "cool/secondary.txt": secondary
+        ]);
+
+        auto result = preprocess(context);
+
+        assert(result.sources["cool/main.txt"] == secondary);
+        assert(result.sources["cool/secondary.txt"] == secondary);
     }
 }
