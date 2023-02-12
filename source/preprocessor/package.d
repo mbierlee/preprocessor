@@ -32,7 +32,12 @@ private enum IncludeDirective = "include";
  * such a source files.
  */
 struct BuildContext {
+    // Sources to be processed
     SourceMap sources;
+
+    // The maximum amount of inclusions allowed. This is to prevent 
+    // an endless inclusion cycle.
+    uint inclusionLimit = 4000;
 }
 
 /** 
@@ -50,6 +55,7 @@ private struct ParseContext {
     ulong directiveStart;
     ulong directiveEnd;
     string directive;
+    uint inclusions;
 }
 
 /** 
@@ -117,8 +123,12 @@ private void processDirective(ref ParseContext parseCtx, const ref BuildContext 
 }
 
 private void processInclude(ref ParseContext parseCtx, const ref BuildContext buildCtx) {
-    //TODO: prevent endless inclusion cycle
+    if (parseCtx.inclusions >= buildCtx.inclusionLimit) {
+        throw new PreprocessException(parseCtx, parseCtx.codePos, "Inclusions has exceeded the limit of " ~
+                buildCtx.inclusionLimit.to!string);
+    }
 
+    parseCtx.inclusions += 1;
     parseCtx.codePos -= 1;
     skipWhiteSpaceTillEol(parseCtx);
     if (!['"', '<'].canFind(parseCtx.source[parseCtx.codePos++])) {
@@ -309,5 +319,16 @@ version (unittest) {
 
         auto result = preprocess(context).sources["main.txt"];
         assert(result == main);
+    }
+
+    @("Prevent endless inclusion cycle")
+    unittest {
+        auto main = "#include \"main.txt\"";
+        auto context = BuildContext([
+                "main.txt": main
+            ]);
+        context.inclusionLimit = 5;
+
+        assertThrown!PreprocessException(preprocess(context));
     }
 }
