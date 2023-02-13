@@ -32,6 +32,10 @@ private enum IfNDefDirective = "ifndef";
 private enum ElseDirective = "else";
 private enum EndIfDirective = "endif";
 
+private static const string[] conditionalTerminators = [
+    ElseDirective, EndIfDirective
+];
+
 /** 
  * A context containing information regarding the build process,
  * such a source files.
@@ -161,7 +165,7 @@ private void processInclude(ref ParseContext parseCtx, const ref BuildContext bu
 
     parseCtx.inclusions += 1;
     parseCtx.codePos -= 1;
-    skipWhiteSpaceTillEol(parseCtx);
+    parseCtx.skipWhiteSpaceTillEol();
     char startChr = parseCtx.source[parseCtx.codePos];
     bool absoluteInclusion;
     if (startChr == '"') {
@@ -198,8 +202,9 @@ private void processIfNDefCondition(ref ParseContext parseCtx, const ref BuildCo
 }
 
 private void processConditionalDirective(ref ParseContext parseCtx, const ref BuildContext buildCtx, const bool negate) {
+    auto startOfConditionalBlock = parseCtx.directiveStart;
     parseCtx.codePos -= 1;
-    skipWhiteSpaceTillEol(parseCtx);
+    parseCtx.skipWhiteSpaceTillEol();
 
     auto condition = parseCtx.collectToken();
     bool isTrue = (condition in buildCtx.definitions) !is null;
@@ -209,6 +214,7 @@ private void processConditionalDirective(ref ParseContext parseCtx, const ref Bu
 
     processConditionalBody(parseCtx, isTrue);
     processConditionalDelimiter(parseCtx, true, !isTrue);
+    parseCtx.codePos = startOfConditionalBlock;
 }
 
 private void processConditionalDelimiter(ref ParseContext parseCtx, const bool allowElse, const bool applyElse) {
@@ -216,7 +222,7 @@ private void processConditionalDelimiter(ref ParseContext parseCtx, const bool a
     parseCtx.directiveStart = parseCtx.codePos - delimiterDirective.length - 2;
 
     if (delimiterDirective == EndIfDirective) {
-        parseCtx.directiveEnd = parseCtx.codePos - 1;
+        parseCtx.directiveEnd = parseCtx.codePos;
         parseCtx.replaceDirectiveStartToEnd("");
     } else if (delimiterDirective == ElseDirective) {
         if (!allowElse) {
@@ -225,21 +231,34 @@ private void processConditionalDelimiter(ref ParseContext parseCtx, const bool a
 
         processConditionalBody(parseCtx, applyElse);
         processConditionalDelimiter(parseCtx, false, false);
-    } else {
-        throw new ParseException(parseCtx, "Unexpected terminating directive '#" ~ delimiterDirective ~ "' for conditional directive.");
     }
 }
 
 private void processConditionalBody(ref ParseContext parseCtx, const bool applyBody) {
     if (applyBody) {
-        parseCtx.directiveEnd = parseCtx.codePos - 1;
+        parseCtx.directiveEnd = parseCtx.codePos;
         parseCtx.clearDirectiveStartToEnd();
-        parseCtx.seekNext('#');
+        parseCtx.seekNextDirective(conditionalTerminators);
     } else {
-        parseCtx.seekNext('#');
+        parseCtx.seekNextDirective(conditionalTerminators);
         parseCtx.directiveEnd = parseCtx.codePos;
         parseCtx.clearDirectiveStartToEnd();
     }
+}
+
+private void seekNextDirective(ref ParseContext parseCtx, const string[] delimitingDirectives) {
+    auto nextDirective = "";
+    while (!delimitingDirectives.canFind(nextDirective) && parseCtx.codePos <
+        parseCtx.source.length) {
+        parseCtx.seekNext('#');
+        nextDirective = parseCtx.collectToken();
+    }
+
+    if (nextDirective.length == 0) {
+        throw new ParseException(parseCtx, "Unexpected end of file while processing directive.");
+    }
+
+    parseCtx.codePos -= nextDirective.length + 1;
 }
 
 private void skipWhiteSpaceTillEol(ref ParseContext parseCtx) {
@@ -311,7 +330,16 @@ private void calculateLineColumn(const ref ParseContext parseCtx, in ulong codeP
 }
 
 /////// Debugging convenience functions
-private void deb(string message) {
+private void deb(string message, bool showWhitspace = false) {
+    if (showWhitspace) {
+        import std.string : replace;
+
+        message = message
+            .replace(' ', '.')
+            .replace('\n', "^\n")
+            .replace('\r', "^\r");
+    }
+
     import std.stdio;
 
     writeln(message);
@@ -327,16 +355,7 @@ private void debpos(const ref ParseContext parseCtx, ulong pos, bool showWhitspa
     auto post = parseCtx.source[pos + 1 .. $];
     auto state = pre ~ "[" ~ cur ~ "]" ~ post;
 
-    if (showWhitspace) {
-        import std.string : replace;
-
-        state = state
-            .replace(' ', '.')
-            .replace('\n', "^\n")
-            .replace('\r', "^\r");
-    }
-
-    deb(state);
+    deb(state, showWhitspace);
 }
 
 private void debcur(const ref ParseContext parseCtx) {
@@ -612,12 +631,11 @@ version (unittest) {
         assertThrown!ParseException(preprocess(context));
     }
 
-    @("Fail when unexpected token terminates conditional block")
+    @("Fail when end of file is reached before conditional terminator")
     unittest {
         auto main = "
             #ifdef I_AM_GROOT
             Groot!
-            #include
         ";
 
         auto context = BuildContext(["main": main]);
@@ -686,5 +704,61 @@ version (unittest) {
         assert(result["main"].strip == "Groot not here!");
     }
 
-    //TODO: test include in conditionals
+    @("#Include works in conditional body")
+    unittest {
+        import std.string : replace;
+
+        auto one = "One";
+        auto eins = "EINS";
+        auto two = "Two";
+        auto zwei = "ZWEI";
+        auto three = "Three";
+        auto drei = "DREI";
+        auto four = "Four";
+        auto vier = "VIER";
+
+        auto main = "
+            #ifdef ONE
+                #include <one>
+            #else
+                #include <eins>
+            #endif
+            #ifdef ZWEI
+                #include <zwei>
+            #else
+                #include <two>
+            #endif
+            #ifndef DREI
+                #include <three>
+            #else
+                #include <drei>
+            #endif
+            #ifndef FOUR
+                #include <vier>
+            #else
+                #include <four>
+            #endif
+        ";
+
+        BuildContext context;
+        context.definitions = [
+            "ONE": "",
+            "FOUR": "",
+        ];
+        context.sources = [
+            "one": one,
+            "eins": eins,
+            "two": two,
+            "zwei": zwei,
+            "three": three,
+            "drei": drei,
+            "four": four,
+            "vier": vier
+        ];
+        context.mainSources = ["main": main];
+
+        auto result = preprocess(context).sources;
+        auto actual = result["main"].replace(' ', "").replace('\n', "");
+        assert(actual == "OneTwoThreeFour");
+    }
 }
