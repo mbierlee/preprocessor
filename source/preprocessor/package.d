@@ -37,6 +37,9 @@ private static const string[] conditionalTerminators = [
     ElseDirective, EndIfDirective
 ];
 
+private enum FileMacro = "FILE";
+private enum LineMacro = "LINE";
+
 /** 
  * A context containing information regarding the build process,
  * such a source files.
@@ -125,7 +128,8 @@ ProcessingResult preprocess(const ref BuildContext context) {
 
 private SourceCode processFile(const Name name, const ref SourceCode source, const ref BuildContext buildCtx) {
     string[string] macros = [
-        "FILE": name
+        FileMacro: name,
+        LineMacro: "0"
     ];
 
     string[string] definitions = cast(string[string]) buildCtx.definitions.dup;
@@ -274,12 +278,22 @@ private void processPredefinedMacro(ref ParseContext parseCtx) {
         macroEnd += 1;
     }
 
-    auto macroValue = macroName in parseCtx.macros;
-    if (macroValue is null) {
-        throw new ParseException(parseCtx, "Cannot expand macro __" ~ macroName ~ "__, it is undefined.");
+    string macroValue;
+    if (macroName == LineMacro) {
+        ulong line, column;
+        calculateLineColumn(parseCtx, line, column);
+        macroValue = line.to!string;
+    } else {
+        auto macroValuePtr = macroName in parseCtx.macros;
+        if (macroValuePtr is null) {
+            throw new ParseException(parseCtx, "Cannot expand macro __" ~ macroName ~ "__, it is undefined.");
+        }
+
+        macroValue = *macroValuePtr;
     }
-    parseCtx.source.replaceInPlace(macroStart, macroEnd, *macroValue);
-    parseCtx.codePos = macroStart + (*macroValue).length;
+
+    parseCtx.source.replaceInPlace(macroStart, macroEnd, macroValue);
+    parseCtx.codePos = macroStart + macroValue.length;
 }
 
 private void seekNextDirective(ref ParseContext parseCtx, const string[] delimitingDirectives) {
@@ -872,6 +886,19 @@ version (unittest) {
         auto context = BuildContext(["main.c": main]);
         auto result = preprocess(context).sources;
         assert(result["main.c"].strip == "main.c");
+    }
+
+    @("Pre-defined macro __LINE__ is defined")
+    unittest {
+        auto main = "
+            #ifdef __LINE__
+                __LINE__
+            #endif
+        ";
+
+        auto context = BuildContext(["main.c": main]);
+        auto result = preprocess(context).sources;
+        assert(result["main.c"].strip == "1"); // Code rewriting messes line numbers all up.... It truely is like a C-compiler!
     }
 
     //TODO
