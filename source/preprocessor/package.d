@@ -22,6 +22,7 @@ alias Name = string;
 alias SourceMap = SourceCode[Name];
 
 private enum DirectiveStart = '#';
+private enum MacroStartEnd = '_';
 private static const char[] endOfLineDelims = ['\n', '\r'];
 private static const char[] endTokenDelims = [' ', '\t', '\n', '\r'];
 private static const char[] whiteSpaceDelims = [' ', '\t'];
@@ -73,6 +74,8 @@ struct ProcessingResult {
 private struct ParseContext {
     string name;
     SourceCode source;
+    string[string] definitions;
+    string[string] macros;
 
     ulong codePos;
     ulong directiveStart;
@@ -121,7 +124,17 @@ ProcessingResult preprocess(const ref BuildContext context) {
 }
 
 private SourceCode processFile(const Name name, const ref SourceCode source, const ref BuildContext buildCtx) {
-    auto parseCtx = ParseContext(name, source);
+    string[string] macros = [
+        "FILE": name
+    ];
+
+    string[string] definitions = cast(string[string]) buildCtx.definitions.dup;
+    foreach (string macroName, string macroValue; macros) {
+        definitions["__" ~ macroName ~ "__"] = macroValue;
+    }
+
+    auto parseCtx = ParseContext(name, source, definitions, macros);
+    bool foundMacroTokenBefore = false;
     parse(parseCtx, (const char chr, out bool stop) {
         if (chr == DirectiveStart) {
             parseCtx.directiveStart = parseCtx.codePos - 1;
@@ -131,6 +144,13 @@ private SourceCode processFile(const Name name, const ref SourceCode source, con
             parseCtx.directive = "";
             parseCtx.directiveStart = 0;
             parseCtx.directiveEnd = 0;
+        } else if (chr == MacroStartEnd) {
+            if (foundMacroTokenBefore) {
+                processPredefinedMacro(parseCtx);
+                foundMacroTokenBefore = false;
+            } else {
+                foundMacroTokenBefore = true;
+            }
         }
     });
 
@@ -143,10 +163,10 @@ private void processDirective(ref ParseContext parseCtx, const ref BuildContext 
         processInclude(parseCtx, buildCtx);
         break;
     case IfDefDirective:
-        processIfDefCondition(parseCtx, buildCtx);
+        processIfDefCondition(parseCtx);
         break;
     case IfNDefDirective:
-        processIfNDefCondition(parseCtx, buildCtx);
+        processIfNDefCondition(parseCtx);
         break;
     case EndIfDirective:
         throw new ParseException(parseCtx, "#endif directive found without accompanying starting conditional (#if/#ifdef)");
@@ -193,21 +213,21 @@ private void processInclude(ref ParseContext parseCtx, const ref BuildContext bu
     parseCtx.replaceDirectiveStartToEnd(*includeSource);
 }
 
-private void processIfDefCondition(ref ParseContext parseCtx, const ref BuildContext buildCtx) {
-    processConditionalDirective(parseCtx, buildCtx, false);
+private void processIfDefCondition(ref ParseContext parseCtx) {
+    processConditionalDirective(parseCtx, false);
 }
 
-private void processIfNDefCondition(ref ParseContext parseCtx, const ref BuildContext buildCtx) {
-    processConditionalDirective(parseCtx, buildCtx, true);
+private void processIfNDefCondition(ref ParseContext parseCtx) {
+    processConditionalDirective(parseCtx, true);
 }
 
-private void processConditionalDirective(ref ParseContext parseCtx, const ref BuildContext buildCtx, const bool negate) {
+private void processConditionalDirective(ref ParseContext parseCtx, const bool negate) {
     auto startOfConditionalBlock = parseCtx.directiveStart;
     parseCtx.codePos -= 1;
     parseCtx.skipWhiteSpaceTillEol();
 
     auto condition = parseCtx.collectToken();
-    bool isTrue = (condition in buildCtx.definitions) !is null;
+    bool isTrue = (condition in parseCtx.definitions) !is null;
     if (negate) {
         isTrue = !isTrue;
     }
@@ -246,6 +266,22 @@ private void processConditionalBody(ref ParseContext parseCtx, const bool applyB
     }
 }
 
+private void processPredefinedMacro(ref ParseContext parseCtx) {
+    auto macroStart = parseCtx.codePos - 2;
+    auto macroName = parseCtx.collectToken([MacroStartEnd]);
+    auto macroEnd = parseCtx.codePos;
+    if (parseCtx.peek == MacroStartEnd) {
+        macroEnd += 1;
+    }
+
+    auto macroValue = macroName in parseCtx.macros;
+    if (macroValue is null) {
+        throw new ParseException(parseCtx, "Cannot expand macro __" ~ macroName ~ "__, it is undefined.");
+    }
+    parseCtx.source.replaceInPlace(macroStart, macroEnd, *macroValue);
+    parseCtx.codePos = macroStart + (*macroValue).length;
+}
+
 private void seekNextDirective(ref ParseContext parseCtx, const string[] delimitingDirectives) {
     auto nextDirective = "";
     while (!delimitingDirectives.canFind(nextDirective) && parseCtx.codePos <
@@ -272,6 +308,10 @@ private void skipWhiteSpaceTillEol(ref ParseContext parseCtx) {
 
 private void seekNext(ref ParseContext parseCtx, const char delimiter) {
     parse(parseCtx, [delimiter], (const char chr, out bool stop) {});
+}
+
+private char peek(const ref ParseContext parseCtx) {
+    return parseCtx.source[parseCtx.codePos];
 }
 
 private string collectToken(ref ParseContext parseCtx, const char[] delimiters = endTokenDelims) {
@@ -358,8 +398,8 @@ private void debpos(const ref ParseContext parseCtx, ulong pos, bool showWhitspa
     deb(state, showWhitspace);
 }
 
-private void debcur(const ref ParseContext parseCtx) {
-    deb(parseCtx.source[parseCtx.codePos].to!string);
+private void debpeek(const ref ParseContext parseCtx) {
+    deb(parseCtx.peek.to!string);
 }
 //////
 
@@ -807,8 +847,41 @@ version (unittest) {
         assert(result["main"].strip == "Hi!");
     }
 
-    //TODO: define/undef
-    //TODO: if/elseif
-    //TODO: error
-    //TODO: #pragma once
 }
+
+// Pre-defined macros tests
+version (unittest) {
+    @("Undefined Pre-defined macro")
+    unittest {
+        auto main = "
+            __MOTOR__
+        ";
+
+        auto context = BuildContext(["main.c": main]);
+        assertThrown!ParseException(preprocess(context));
+    }
+
+    @("Pre-defined macro __FILE__ is defined")
+    unittest {
+        auto main = "
+            #ifdef __FILE__
+                __FILE__
+            #endif
+        ";
+
+        auto context = BuildContext(["main.c": main]);
+        auto result = preprocess(context).sources;
+        assert(result["main.c"].strip == "main.c");
+    }
+
+    //TODO
+    // __LINE__
+    // __DATE__
+    // __TIME__
+    // __TIMESTAMP__
+}
+
+//TODO: define/undef
+//TODO: if/elseif
+//TODO: error
+//TODO: #pragma once
