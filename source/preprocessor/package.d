@@ -27,13 +27,16 @@ private static const char[] endTokenDelims = [' ', '\t', '\n', '\r'];
 private static const char[] whiteSpaceDelims = [' ', '\t'];
 
 private enum IncludeDirective = "include";
+private enum IfDefDirective = "ifdef";
+private enum ElseDirective = "else";
+private enum EndIfDirective = "endif";
 
 /** 
  * A context containing information regarding the build process,
  * such a source files.
  */
 struct BuildContext {
-    // Sources to be processed
+    /// Sources to be processed
     SourceMap sources;
 
     /** 
@@ -44,8 +47,13 @@ struct BuildContext {
      */
     SourceMap mainSources;
 
-    // The maximum amount of inclusions allowed. This is to prevent 
-    // an endless inclusion cycle.
+    /// A map of pre-defined definitions use in conditionals.
+    string[string] definitions;
+
+    /**
+     * The maximum amount of inclusions allowed. This is to prevent 
+     * an endless inclusion cycle.
+     */
     uint inclusionLimit = 4000;
 }
 
@@ -129,6 +137,13 @@ private void processDirective(ref ParseContext parseCtx, const ref BuildContext 
     case IncludeDirective:
         processInclude(parseCtx, buildCtx);
         break;
+    case IfDefDirective:
+        processIfDefCondition(parseCtx, buildCtx);
+        break;
+    case EndIfDirective:
+        throw new ParseException(parseCtx, "#endif directive found without accompanying starting conditional (#if/#ifdef)");
+    case ElseDirective:
+        throw new ParseException(parseCtx, "#else directive found outside of conditional block");
     default:
         // Ignore directive. It may be of semantic importance to the source in another way.
     }
@@ -167,8 +182,55 @@ private void processInclude(ref ParseContext parseCtx, const ref BuildContext bu
         throw new PreprocessException(parseCtx, parseCtx.directiveStart, "Failed to include '" ~ includeName ~ "': It does not exist.");
     }
 
-    parseCtx.source.replaceInPlace(parseCtx.directiveStart, parseCtx.directiveEnd, *includeSource);
-    parseCtx.codePos = parseCtx.directiveStart;
+    parseCtx.replaceDirectiveStartToEnd(*includeSource);
+}
+
+private void processIfDefCondition(ref ParseContext parseCtx, const ref BuildContext buildCtx) {
+    processConditionalDirective(parseCtx, buildCtx, false);
+}
+
+private void processConditionalDirective(ref ParseContext parseCtx, const ref BuildContext buildCtx, const bool negate) {
+    parseCtx.codePos -= 1;
+    skipWhiteSpaceTillEol(parseCtx);
+
+    auto condition = collectToken(parseCtx);
+    bool isTrue = (condition in buildCtx.definitions) !is null;
+    if (negate) {
+        isTrue = !isTrue;
+    }
+
+    processConditionalBody(parseCtx, isTrue);
+    processConditionalDelimiter(parseCtx, true, !isTrue);
+}
+
+private void processConditionalDelimiter(ref ParseContext parseCtx, const bool allowElse, const bool applyElse) {
+    const string delimiterDirective = collectToken(parseCtx);
+    if (delimiterDirective == EndIfDirective) {
+        parseCtx.directiveStart = parseCtx.codePos - delimiterDirective.length - 2;
+        parseCtx.directiveEnd = parseCtx.codePos - 1;
+        parseCtx.replaceDirectiveStartToEnd("");
+    } else if (delimiterDirective == ElseDirective) {
+        if (!allowElse) {
+            throw new ParseException(parseCtx, "#else directive defined multiple times. Only one #else block is allowed.");
+        }
+
+        processConditionalBody(parseCtx, applyElse);
+        processConditionalDelimiter(parseCtx, false, false);
+    } else {
+        throw new ParseException(parseCtx, "Unexpected terminating directive #" ~ delimiterDirective ~ " for #ifdef");
+    }
+}
+
+private void processConditionalBody(ref ParseContext parseCtx, const bool applyBody) {
+    if (applyBody) {
+        parseCtx.directiveEnd = parseCtx.codePos - 1;
+        parseCtx.clearDirectiveStartToEnd();
+        seekNext(parseCtx, '#');
+    } else {
+        seekNext(parseCtx, '#');
+        parseCtx.directiveEnd = parseCtx.codePos;
+        parseCtx.clearDirectiveStartToEnd();
+    }
 }
 
 private void skipWhiteSpaceTillEol(ref ParseContext parseCtx) {
@@ -180,18 +242,22 @@ private void skipWhiteSpaceTillEol(ref ParseContext parseCtx) {
     });
 }
 
+private void seekNext(ref ParseContext parseCtx, const char delimiter) {
+    parse(parseCtx, [delimiter], (const char chr, out bool stop) {});
+}
+
 private string collectToken(ref ParseContext parseCtx, const char[] delimiters = endTokenDelims) {
     string token;
     parse(parseCtx, delimiters, (const char chr, out bool stop) { token ~= chr; });
     return token;
 }
 
-private void parse(ref ParseContext parseCtx, void delegate(const char, out bool stop) func) {
+private void parse(ref ParseContext parseCtx, void delegate(const char chr, out bool stop) func) {
     parse(parseCtx, [], func);
 }
 
 private void parse(ref ParseContext parseCtx, const char[] delimiters, void delegate(
-        const char, out bool stop) func) {
+        const char chr, out bool stop) func) {
     while (parseCtx.codePos < parseCtx.source.length) {
         const char chr = parseCtx.source[parseCtx.codePos++];
         if (delimiters.canFind(chr)) {
@@ -205,6 +271,15 @@ private void parse(ref ParseContext parseCtx, const char[] delimiters, void dele
             break;
         }
     }
+}
+
+void clearDirectiveStartToEnd(ref ParseContext parseCtx) {
+    parseCtx.replaceDirectiveStartToEnd("");
+}
+
+void replaceDirectiveStartToEnd(ref ParseContext parseCtx, const string replacement) {
+    parseCtx.source.replaceInPlace(parseCtx.directiveStart, parseCtx.directiveEnd, replacement);
+    parseCtx.codePos = parseCtx.directiveStart;
 }
 
 private void calculateLineColumn(const ref ParseContext parseCtx, out ulong line, out ulong column) {
@@ -226,12 +301,35 @@ private void calculateLineColumn(const ref ParseContext parseCtx, in ulong codeP
     }
 }
 
-// temp
+/////// Debugging convenience functions
 private void deb(string message) {
     import std.stdio;
 
     writeln(message);
 }
+
+private void deb(const ref ParseContext parseCtx, bool showWhitspace = false) {
+    auto pre = parseCtx.source[0 .. parseCtx.codePos];
+    auto cur = parseCtx.source[parseCtx.codePos].to!string;
+    auto post = parseCtx.source[parseCtx.codePos + 1 .. $];
+    auto state = pre ~ "[" ~ cur ~ "]" ~ post;
+
+    if (showWhitspace) {
+        import std.string : replace;
+
+        state = state
+            .replace(' ', '.')
+            .replace('\n', "^\n")
+            .replace('\r', "^\r");
+    }
+
+    deb(state);
+}
+
+private void debcur(const ref ParseContext parseCtx) {
+    deb(parseCtx.source[parseCtx.codePos].to!string);
+}
+//////
 
 // Generic tests
 version (unittest) {
@@ -389,5 +487,96 @@ version (unittest) {
 
         assert(result.sources["cool/main.txt"] == secondary);
         assert(result.sources["cool/secondary.txt"] == secondary);
+    }
+}
+
+// Conditional tests
+version (unittest) {
+    import std.exception : assertThrown;
+    import std.string : strip;
+
+    @("Fail if a rogue #endif is found")
+    unittest {
+        auto main = "#endif";
+        auto context = BuildContext(["main": main]);
+
+        assertThrown!ParseException(preprocess(context));
+    }
+
+    @("Fail if a rogue #else is found")
+    unittest {
+        auto main = "#else";
+        auto context = BuildContext(["main": main]);
+
+        assertThrown!ParseException(preprocess(context));
+    }
+
+    @("Include body if token is defined")
+    unittest {
+        auto main = "
+            #ifdef I_AM_GROOT
+            Groot!
+            #endif
+        ";
+
+        auto context = BuildContext(["main": main]);
+        context.definitions = [
+            "I_AM_GROOT": "very"
+        ];
+
+        auto result = preprocess(context).sources;
+        assert(result["main"].strip == "Groot!");
+    }
+
+    @("Not include body if token is not defined")
+    unittest {
+        auto main = "
+            #ifdef I_AM_NOT_GROOT
+            Groot!
+            #endif
+        ";
+
+        auto context = BuildContext(["main": main]);
+        context.definitions = [
+            "I_AM_GROOT": "very"
+        ];
+
+        auto result = preprocess(context).sources;
+        assert(result["main"].strip == "");
+    }
+
+    @("Include else body if token is not defined")
+    unittest {
+        auto main = "
+            #ifdef I_AM_NOT_GROOT
+            Groot!
+            #else
+            Not Groot!
+            #endif
+        ";
+
+        auto context = BuildContext(["main": main]);
+        context.definitions = [
+            "I_AM_GROOT": "very"
+        ];
+
+        auto result = preprocess(context).sources;
+        assert(result["main"].strip == "Not Groot!");
+    }
+
+    @("Fail when else is defined multiple times")
+    unittest {
+        auto main = "
+            #ifdef I_AM_NOT_GROOT
+            Groot!
+            #else
+            Not Groot!
+            #else
+            Still not Groot!
+            #endif
+        ";
+
+        auto context = BuildContext(["main": main]);
+        assertThrown!ParseException(preprocess(context));
     }
 }
