@@ -217,7 +217,7 @@ private void processConditionalDelimiter(ref ParseContext parseCtx, const bool a
         processConditionalBody(parseCtx, applyElse);
         processConditionalDelimiter(parseCtx, false, false);
     } else {
-        throw new ParseException(parseCtx, "Unexpected terminating directive #" ~ delimiterDirective ~ " for #ifdef");
+        throw new ParseException(parseCtx, "Unexpected terminating directive '#" ~ delimiterDirective ~ "' for conditional directive.");
     }
 }
 
@@ -574,6 +574,18 @@ version (unittest) {
             #else
             Still not Groot!
             #endif
+        ";
+
+        auto context = BuildContext(["main": main]);
+        assertThrown!ParseException(preprocess(context));
+    }
+
+    @("Fail when unexpected token terminates conditional block")
+    unittest {
+        auto main = "
+            #ifdef I_AM_GROOT
+            Groot!
+            #include
         ";
 
         auto context = BuildContext(["main": main]);
