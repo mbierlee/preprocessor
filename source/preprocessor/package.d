@@ -761,4 +761,54 @@ version (unittest) {
         auto actual = result["main"].replace(' ', "").replace('\n', "");
         assert(actual == "OneTwoThreeFour");
     }
+
+    @("Conditionals inside of conditional is not supported")
+    unittest {
+        auto main = "
+            #ifdef HI
+                #ifdef REALLY_HI
+                    Hi!
+                #endif
+            #endif
+        ";
+
+        auto context = BuildContext(["main": main]);
+
+        assertThrown!ParseException(preprocess(context));
+    }
+
+    @("Conditionals inside of included code is supported")
+    unittest {
+        auto main = "
+            #ifdef HI
+                #include <include>
+            #endif
+        ";
+
+        auto include = "
+            #ifdef REALLY_HI
+                Hi!
+            #endif
+        ";
+
+        auto context = BuildContext();
+        context.sources = [
+            "include": include
+        ];
+        context.mainSources = [
+            "main": main
+        ];
+        context.definitions = [
+            "HI": null,
+            "REALLY_HI": null
+        ];
+
+        auto result = preprocess(context).sources;
+        assert(result["main"].strip == "Hi!");
+    }
+
+    //TODO: define/undef
+    //TODO: if/elseif
+    //TODO: error
+    //TODO: #pragma once
 }
