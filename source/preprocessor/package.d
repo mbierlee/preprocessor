@@ -28,6 +28,7 @@ private static const char[] whiteSpaceDelims = [' ', '\t'];
 
 private enum IncludeDirective = "include";
 private enum IfDefDirective = "ifdef";
+private enum IfNDefDirective = "ifndef";
 private enum ElseDirective = "else";
 private enum EndIfDirective = "endif";
 
@@ -140,6 +141,9 @@ private void processDirective(ref ParseContext parseCtx, const ref BuildContext 
     case IfDefDirective:
         processIfDefCondition(parseCtx, buildCtx);
         break;
+    case IfNDefDirective:
+        processIfNDefCondition(parseCtx, buildCtx);
+        break;
     case EndIfDirective:
         throw new ParseException(parseCtx, "#endif directive found without accompanying starting conditional (#if/#ifdef)");
     case ElseDirective:
@@ -189,11 +193,15 @@ private void processIfDefCondition(ref ParseContext parseCtx, const ref BuildCon
     processConditionalDirective(parseCtx, buildCtx, false);
 }
 
+private void processIfNDefCondition(ref ParseContext parseCtx, const ref BuildContext buildCtx) {
+    processConditionalDirective(parseCtx, buildCtx, true);
+}
+
 private void processConditionalDirective(ref ParseContext parseCtx, const ref BuildContext buildCtx, const bool negate) {
     parseCtx.codePos -= 1;
     skipWhiteSpaceTillEol(parseCtx);
 
-    auto condition = collectToken(parseCtx);
+    auto condition = parseCtx.collectToken();
     bool isTrue = (condition in buildCtx.definitions) !is null;
     if (negate) {
         isTrue = !isTrue;
@@ -204,9 +212,10 @@ private void processConditionalDirective(ref ParseContext parseCtx, const ref Bu
 }
 
 private void processConditionalDelimiter(ref ParseContext parseCtx, const bool allowElse, const bool applyElse) {
-    const string delimiterDirective = collectToken(parseCtx);
+    const string delimiterDirective = parseCtx.collectToken();
+    parseCtx.directiveStart = parseCtx.codePos - delimiterDirective.length - 2;
+
     if (delimiterDirective == EndIfDirective) {
-        parseCtx.directiveStart = parseCtx.codePos - delimiterDirective.length - 2;
         parseCtx.directiveEnd = parseCtx.codePos - 1;
         parseCtx.replaceDirectiveStartToEnd("");
     } else if (delimiterDirective == ElseDirective) {
@@ -225,9 +234,9 @@ private void processConditionalBody(ref ParseContext parseCtx, const bool applyB
     if (applyBody) {
         parseCtx.directiveEnd = parseCtx.codePos - 1;
         parseCtx.clearDirectiveStartToEnd();
-        seekNext(parseCtx, '#');
+        parseCtx.seekNext('#');
     } else {
-        seekNext(parseCtx, '#');
+        parseCtx.seekNext('#');
         parseCtx.directiveEnd = parseCtx.codePos;
         parseCtx.clearDirectiveStartToEnd();
     }
@@ -309,9 +318,13 @@ private void deb(string message) {
 }
 
 private void deb(const ref ParseContext parseCtx, bool showWhitspace = false) {
-    auto pre = parseCtx.source[0 .. parseCtx.codePos];
-    auto cur = parseCtx.source[parseCtx.codePos].to!string;
-    auto post = parseCtx.source[parseCtx.codePos + 1 .. $];
+    debpos(parseCtx, parseCtx.codePos, showWhitspace);
+}
+
+private void debpos(const ref ParseContext parseCtx, ulong pos, bool showWhitspace = false) {
+    auto pre = parseCtx.source[0 .. pos];
+    auto cur = parseCtx.source[pos].to!string;
+    auto post = parseCtx.source[pos + 1 .. $];
     auto state = pre ~ "[" ~ cur ~ "]" ~ post;
 
     if (showWhitspace) {
@@ -564,6 +577,25 @@ version (unittest) {
         assert(result["main"].strip == "Not Groot!");
     }
 
+    @("Not include else body if token is defined")
+    unittest {
+        auto main = "
+            #ifdef I_AM_GROOT
+            Tree!
+            #else
+            Not Tree!
+            #endif
+        ";
+
+        auto context = BuildContext(["main": main]);
+        context.definitions = [
+            "I_AM_GROOT": "very"
+        ];
+
+        auto result = preprocess(context).sources;
+        assert(result["main"].strip == "Tree!");
+    }
+
     @("Fail when else is defined multiple times")
     unittest {
         auto main = "
@@ -591,4 +623,68 @@ version (unittest) {
         auto context = BuildContext(["main": main]);
         assertThrown!ParseException(preprocess(context));
     }
+
+    @("Include body if token is not defined in ifndef")
+    unittest {
+        auto main = "
+            #ifndef I_AM_NOT_GROOT
+            Groot not here!
+            #endif
+        ";
+
+        auto context = BuildContext(["main": main]);
+
+        auto result = preprocess(context).sources;
+        assert(result["main"].strip == "Groot not here!");
+    }
+
+    @("Not include body if token is defined in ifndef")
+    unittest {
+        auto main = "
+            #ifndef I_AM_NOT_GROOT
+            Groot not here!
+            #endif
+        ";
+
+        auto context = BuildContext(["main": main]);
+        context.definitions = ["I_AM_NOT_GROOT": "ok man!"];
+
+        auto result = preprocess(context).sources;
+        assert(result["main"].strip == "");
+    }
+
+    @("Include else body if token is defined in ifndef")
+    unittest {
+        auto main = "
+            #ifndef I_AM_NOT_GROOT
+            Groot not here!
+            #else
+            Big tree thing is here!
+            #endif
+        ";
+
+        auto context = BuildContext(["main": main]);
+        context.definitions = ["I_AM_NOT_GROOT": "ok man!"];
+
+        auto result = preprocess(context).sources;
+        assert(result["main"].strip == "Big tree thing is here!");
+    }
+
+    @("Not include else body if token is not defined in ifndef")
+    unittest {
+        auto main = "
+            #ifndef I_AM_NOT_GROOT
+            Groot not here!
+            #else
+            Big tree thing is here!
+            #endif
+        ";
+
+        auto context = BuildContext(["main": main]);
+
+        auto result = preprocess(context).sources;
+        assert(result["main"].strip == "Groot not here!");
+    }
+
+    //TODO: test include in conditionals
 }
