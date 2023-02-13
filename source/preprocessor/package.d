@@ -137,7 +137,7 @@ private void processDirective(ref ParseContext parseCtx, const ref BuildContext 
 private void processInclude(ref ParseContext parseCtx, const ref BuildContext buildCtx) {
     if (parseCtx.inclusions >= buildCtx.inclusionLimit) {
         throw new PreprocessException(parseCtx, parseCtx.codePos, "Inclusions has exceeded the limit of " ~
-                buildCtx.inclusionLimit.to!string);
+                buildCtx.inclusionLimit.to!string ~ ". Adjust BuildContext.inclusionLimit to increase.");
     }
 
     parseCtx.inclusions += 1;
