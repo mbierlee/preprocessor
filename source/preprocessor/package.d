@@ -141,6 +141,7 @@ private SourceCode processFile(const Name name, const ref SourceCode source, con
     bool foundMacroTokenBefore = false;
     parse(parseCtx, (const char chr, out bool stop) {
         if (chr == DirectiveStart) {
+            foundMacroTokenBefore = false;
             parseCtx.directiveStart = parseCtx.codePos - 1;
             parseCtx.directive = collectToken(parseCtx);
             processDirective(parseCtx, buildCtx);
@@ -155,7 +156,10 @@ private SourceCode processFile(const Name name, const ref SourceCode source, con
             } else {
                 foundMacroTokenBefore = true;
             }
+        } else {
+            foundMacroTokenBefore = false;
         }
+
     });
 
     return parseCtx.source;
@@ -845,7 +849,7 @@ version (unittest) {
             #endif
         ";
 
-        auto context = BuildContext();
+        BuildContext context;
         context.sources = [
             "include": include
         ];
@@ -901,8 +905,16 @@ version (unittest) {
         assert(result["main.c"].strip == "1"); // Code rewriting messes line numbers all up.... It truely is like a C-compiler!
     }
 
+    @("Ignore detached second underscore as part of possible macro")
+    unittest {
+        auto main = "IM_AM_NOT_A_MACRO";
+
+        auto context = BuildContext(["main": main]);
+        auto result = preprocess(context).sources;
+        assert(result["main"] == "IM_AM_NOT_A_MACRO");
+    }
+
     //TODO
-    // __LINE__
     // __DATE__
     // __TIME__
     // __TIMESTAMP__
