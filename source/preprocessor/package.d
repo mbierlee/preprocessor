@@ -117,6 +117,12 @@ class PreprocessException : Exception {
     }
 }
 
+/** 
+ * Preprocess the sources contained in the given build context.
+ * Params:
+ *   context = Context used in the pre-processing run.
+ * Returns: A procesing result containing all processed (main) sources.
+ */
 ProcessingResult preprocess(const ref BuildContext context) {
     ProcessingResult result;
     const(SourceMap) sources = context.mainSources.length > 0 ? context.mainSources
