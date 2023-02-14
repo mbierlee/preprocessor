@@ -95,13 +95,10 @@ private struct ParseContext {
 /** 
  * An exception typically thrown when there are parsing errors while preprocessing.
  */
-class ParseException : Exception {
+class ParseException : PreprocessException {
     this(in ref ParseContext parseCtx, string msg, string file = __FILE__, size_t line = __LINE__) {
-        ulong srcLine;
-        ulong srcColumn;
-        calculateLineColumn(parseCtx, srcLine, srcColumn);
-        auto parseErrorMsg = "Error parsing " ~ parseCtx.name ~ "(" ~ srcLine.to!string ~ "," ~ srcColumn.to!string ~ "): " ~ msg;
-        super(parseErrorMsg, file, line);
+        auto errorMessage = "Parse error: " ~ msg;
+        super(parseCtx, parseCtx.codePos, errorMessage, file, line);
     }
 }
 
