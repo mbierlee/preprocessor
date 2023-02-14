@@ -16,7 +16,7 @@ import std.algorithm : canFind;
 import std.conv : to;
 import std.array : replaceInPlace;
 import std.path : dirName;
-import std.string : toLower;
+import std.string : toLower, startsWith, endsWith;
 
 alias SourceCode = string;
 alias Name = string;
@@ -59,8 +59,11 @@ struct BuildContext {
      */
     SourceMap mainSources;
 
-    /// A map of pre-defined definitions use in conditionals.
-    string[string] definitions;
+    /**
+     * A map of pre-defined macros. 
+     * Built-in macros will override these.
+     */
+    string[string] macros;
 
     /**
      * The maximum amount of inclusions allowed. This is to prevent 
@@ -80,8 +83,7 @@ struct ProcessingResult {
 private struct ParseContext {
     string name;
     SourceCode source;
-    string[string] definitions;
-    string[string] macros; // combine with definitions. keep "macros".
+    string[string] macros;
 
     ulong codePos;
     ulong replaceStart;
@@ -130,17 +132,17 @@ ProcessingResult preprocess(const ref BuildContext context) {
 }
 
 private SourceCode processFile(const Name name, const ref SourceCode source, const ref BuildContext buildCtx) {
-    string[string] macros = [
+    string[string] builtInMacros = [
         FileMacro: name,
         LineMacro: "0"
     ];
 
-    string[string] definitions = cast(string[string]) buildCtx.definitions.dup;
-    foreach (string macroName, string macroValue; macros) {
-        definitions["__" ~ macroName ~ "__"] = macroValue;
+    string[string] macros = cast(string[string]) buildCtx.macros.dup;
+    foreach (string macroName, string macroValue; builtInMacros) {
+        macros[macroName] = macroValue;
     }
 
-    auto parseCtx = ParseContext(name, source, definitions, macros);
+    auto parseCtx = ParseContext(name, source, macros);
     bool foundMacroTokenBefore = false;
     parse(parseCtx, (const char chr, out bool stop) {
         if (chr == DirectiveStart) {
@@ -154,7 +156,7 @@ private SourceCode processFile(const Name name, const ref SourceCode source, con
             parseCtx.replaceEnd = 0;
         } else if (chr == MacroStartEnd) {
             if (foundMacroTokenBefore) {
-                processPredefinedMacro(parseCtx);
+                expandMacro(parseCtx);
                 foundMacroTokenBefore = false;
             } else {
                 foundMacroTokenBefore = true;
@@ -282,12 +284,16 @@ private void processConditionalDirective(ref ParseContext parseCtx, const bool n
 }
 
 private bool evaluateCondition(ref ParseContext parseCtx, const bool negate, const bool onlyCheckExistence) {
-    auto condition = parseCtx.collectToken();
-    auto definitionValue = condition in parseCtx.definitions;
-    bool isTrue = definitionValue !is null;
+    auto expression = parseCtx.collectToken();
+    if (expression.startsWith("__") && expression.endsWith("__")) {
+        expression = expression[2 .. $ - 2];
+    }
+
+    auto macroValue = expression in parseCtx.macros;
+    bool isTrue = macroValue !is null;
     if (!onlyCheckExistence) {
-        isTrue = isTrue && *definitionValue != "0" && *definitionValue != null
-            && (*definitionValue).toLower != "false";
+        isTrue = isTrue && *macroValue != "0" && *macroValue != null
+            && (*macroValue).toLower != "false";
     }
 
     if (negate) {
@@ -309,7 +315,7 @@ private void rejectConditionalBody(ref ParseContext parseCtx) {
     parseCtx.clearStartToEnd();
 }
 
-private void processPredefinedMacro(ref ParseContext parseCtx) {
+private void expandMacro(ref ParseContext parseCtx) {
     auto macroStart = parseCtx.codePos - 2;
     auto macroName = parseCtx.collectToken([MacroStartEnd]);
     auto macroEnd = parseCtx.codePos;
@@ -649,7 +655,7 @@ version (unittest) {
         ";
 
         auto context = BuildContext(["main": main]);
-        context.definitions = [
+        context.macros = [
             "I_AM_GROOT": "very"
         ];
 
@@ -666,7 +672,7 @@ version (unittest) {
         ";
 
         auto context = BuildContext(["main": main]);
-        context.definitions = [
+        context.macros = [
             "I_AM_GROOT": "very"
         ];
 
@@ -685,7 +691,7 @@ version (unittest) {
         ";
 
         auto context = BuildContext(["main": main]);
-        context.definitions = [
+        context.macros = [
             "I_AM_GROOT": "very"
         ];
 
@@ -704,7 +710,7 @@ version (unittest) {
         ";
 
         auto context = BuildContext(["main": main]);
-        context.definitions = [
+        context.macros = [
             "I_AM_GROOT": "very"
         ];
 
@@ -762,7 +768,7 @@ version (unittest) {
         ";
 
         auto context = BuildContext(["main": main]);
-        context.definitions = ["I_AM_NOT_GROOT": "ok man!"];
+        context.macros = ["I_AM_NOT_GROOT": "ok man!"];
 
         auto result = preprocess(context).sources;
         assert(result["main"].strip == "");
@@ -779,7 +785,7 @@ version (unittest) {
         ";
 
         auto context = BuildContext(["main": main]);
-        context.definitions = ["I_AM_NOT_GROOT": "ok man!"];
+        context.macros = ["I_AM_NOT_GROOT": "ok man!"];
 
         auto result = preprocess(context).sources;
         assert(result["main"].strip == "Big tree thing is here!");
@@ -836,7 +842,7 @@ version (unittest) {
         ";
 
         BuildContext context;
-        context.definitions = [
+        context.macros = [
             "ONE": "",
             "FOUR": "",
         ];
@@ -892,7 +898,7 @@ version (unittest) {
         context.mainSources = [
             "main": main
         ];
-        context.definitions = [
+        context.macros = [
             "HI": null,
             "REALLY_HI": null
         ];
@@ -925,7 +931,7 @@ version (unittest) {
         ";
 
         auto context = BuildContext(["main": main]);
-        context.definitions = [
+        context.macros = [
             "HOUSE_ON_FIRE": "true",
             "WATER_BUCKET_IN_HAND": "0",
             "LAKE_NEARBY": "FALSE",
@@ -948,7 +954,7 @@ version (unittest) {
         ";
 
         auto context = BuildContext(["main": main]);
-        context.definitions = [
+        context.macros = [
             "MOON": "false",
         ];
 
@@ -971,7 +977,7 @@ version (unittest) {
         ";
 
         auto context = BuildContext(["main": main]);
-        context.definitions = [
+        context.macros = [
             "MOON": "false",
             "EARTH": "probably",
             "FIRE": "true"
@@ -994,7 +1000,7 @@ version (unittest) {
         ";
 
         auto context = BuildContext(["main": main]);
-        context.definitions = [
+        context.macros = [
             "JA": "ja!",
         ];
 
