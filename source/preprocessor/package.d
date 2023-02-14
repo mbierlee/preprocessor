@@ -1011,7 +1011,7 @@ version (unittest) {
 
 // Macros tests
 version (unittest) {
-    @("Undefined Pre-defined macro")
+    @("Undefined macro fails to expand")
     unittest {
         auto main = "
             __MOTOR__
@@ -1021,7 +1021,28 @@ version (unittest) {
         assertThrown!ParseException(preprocess(context));
     }
 
-    @("Pre-defined macro __FILE__ is defined")
+    @("Expand custom pre-defined macro")
+    unittest {
+        auto main = "
+            #ifdef HI
+                __HI__
+            #endif
+            #ifdef __THERE__
+                __THERE__
+            #endif
+        ";
+
+        auto context = BuildContext(["main": main]);
+        context.macros = [
+            "HI": "Hi",
+            "THERE": "There"
+        ];
+
+        auto result = preprocess(context).sources;
+        assert(result["main"].stripAllWhiteSpace == "HiThere");
+    }
+
+    @("Built-in macro __FILE__ is defined")
     unittest {
         auto main = "
             #ifdef __FILE__
@@ -1034,7 +1055,7 @@ version (unittest) {
         assert(result["main.c"].strip == "main.c");
     }
 
-    @("Pre-defined macro __LINE__ is defined")
+    @("Built-in macro __LINE__ is defined")
     unittest {
         auto main = "
             #ifdef __LINE__
@@ -1044,7 +1065,7 @@ version (unittest) {
 
         auto context = BuildContext(["main.c": main]);
         auto result = preprocess(context).sources;
-        assert(result["main.c"].strip == "1"); // Code rewriting messes line numbers all up.... It truely is like a C-compiler!
+        assert(result["main.c"].strip == "1"); // Code re-writing messes line numbers all up.... It truely is like a C-compiler!
     }
 
     @("Ignore detached second underscore as part of possible macro")
@@ -1062,7 +1083,6 @@ version (unittest) {
     // __TIMESTAMP__
 }
 
-//TODO: expand custom object macros
 //TODO: define/undef
 //TODO: error
 //TODO: #pragma once
