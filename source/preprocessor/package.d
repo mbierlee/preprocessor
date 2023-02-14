@@ -16,6 +16,7 @@ import std.algorithm : canFind;
 import std.conv : to;
 import std.array : replaceInPlace;
 import std.path : dirName;
+import std.string : toLower;
 
 alias SourceCode = string;
 alias Name = string;
@@ -28,6 +29,7 @@ private static const char[] endTokenDelims = [' ', '\t', '\n', '\r'];
 private static const char[] whiteSpaceDelims = [' ', '\t'];
 
 private enum IncludeDirective = "include";
+private enum IfDirective = "if";
 private enum IfDefDirective = "ifdef";
 private enum IfNDefDirective = "ifndef";
 private enum ElseDirective = "else";
@@ -170,6 +172,9 @@ private void processDirective(ref ParseContext parseCtx, const ref BuildContext 
     case IncludeDirective:
         processInclude(parseCtx, buildCtx);
         break;
+    case IfDirective:
+        processIfCondition(parseCtx);
+        break;
     case IfDefDirective:
         processIfDefCondition(parseCtx);
         break;
@@ -221,21 +226,31 @@ private void processInclude(ref ParseContext parseCtx, const ref BuildContext bu
     parseCtx.replaceDirectiveStartToEnd(*includeSource);
 }
 
+private void processIfCondition(ref ParseContext parseCtx) {
+    processConditionalDirective(parseCtx, false, false);
+}
+
 private void processIfDefCondition(ref ParseContext parseCtx) {
-    processConditionalDirective(parseCtx, false);
+    processConditionalDirective(parseCtx, false, true);
 }
 
 private void processIfNDefCondition(ref ParseContext parseCtx) {
-    processConditionalDirective(parseCtx, true);
+    processConditionalDirective(parseCtx, true, true);
 }
 
-private void processConditionalDirective(ref ParseContext parseCtx, const bool negate) {
+private void processConditionalDirective(ref ParseContext parseCtx, const bool negate, const bool onlyCheckExistence) {
     auto startOfConditionalBlock = parseCtx.directiveStart;
     parseCtx.codePos -= 1;
     parseCtx.skipWhiteSpaceTillEol();
 
     auto condition = parseCtx.collectToken();
-    bool isTrue = (condition in parseCtx.definitions) !is null;
+    auto definitionValue = condition in parseCtx.definitions;
+    bool isTrue = definitionValue !is null;
+    if (!onlyCheckExistence) {
+        isTrue = isTrue && *definitionValue != "0" && *definitionValue != null
+            && (*definitionValue).toLower != "false";
+    }
+
     if (negate) {
         isTrue = !isTrue;
     }
@@ -420,6 +435,15 @@ private void debpeek(const ref ParseContext parseCtx) {
     deb(parseCtx.peek.to!string);
 }
 //////
+version (unittest) {
+    import std.exception : assertThrown;
+    import std.string : strip;
+    import std.array : replace;
+
+    string stripAllWhiteSpace(string input) {
+        return input.replace(' ', "").replace('\n', "");
+    }
+}
 
 // Generic tests
 version (unittest) {
@@ -456,8 +480,6 @@ version (unittest) {
 
 // Includes tests
 version (unittest) {
-    import std.exception : assertThrown;
-
     @("Resolve includes")
     unittest {
         auto hi = "Hi!";
@@ -582,9 +604,6 @@ version (unittest) {
 
 // Conditional tests
 version (unittest) {
-    import std.exception : assertThrown;
-    import std.string : strip;
-
     @("Fail if a rogue #endif is found")
     unittest {
         auto main = "#endif";
@@ -764,8 +783,6 @@ version (unittest) {
 
     @("#Include works in conditional body")
     unittest {
-        import std.string : replace;
-
         auto one = "One";
         auto eins = "EINS";
         auto two = "Two";
@@ -816,8 +833,7 @@ version (unittest) {
         context.mainSources = ["main": main];
 
         auto result = preprocess(context).sources;
-        auto actual = result["main"].replace(' ', "").replace('\n', "");
-        assert(actual == "OneTwoThreeFour");
+        assert(result["main"].stripAllWhiteSpace == "OneTwoThreeFour");
     }
 
     @("Conditionals inside of conditional is not supported")
@@ -865,9 +881,64 @@ version (unittest) {
         assert(result["main"].strip == "Hi!");
     }
 
+    @("Include body in if block")
+    unittest {
+        auto main = "
+            #if HOUSE_ON_FIRE
+                oh no!
+            #endif
+            #if FIREMAN_IN_SIGHT
+                yay saved!
+            #endif
+            #if WATER_BUCKET_IN_HAND
+                Quick use it!
+            #endif
+            #if LAKE_NEARBY
+                Throw house in it!
+            #endif
+            #if CAR_NEARBY
+                Book it!
+            #endif
+            #if SCREAM
+                AAAAAAAH!
+            #endif
+        ";
+
+        auto context = BuildContext(["main": main]);
+        context.definitions = [
+            "HOUSE_ON_FIRE": "true",
+            "WATER_BUCKET_IN_HAND": "0",
+            "LAKE_NEARBY": "FALSE",
+            "CAR_NEARBY": null,
+            "SCREAM": "AAAAAAAAAAAAH!"
+        ];
+
+        auto result = preprocess(context).sources;
+        assert(result["main"].stripAllWhiteSpace == "ohno!AAAAAAAH!");
+    }
+
+    @("Include else body in if block if false")
+    unittest {
+        auto main = "
+            #if MOON
+                It's a moon
+            #else
+                That's no moon, it's a space station!
+            #endif
+        ";
+
+        auto context = BuildContext(["main": main]);
+        context.definitions = [
+            "MOON": "false",
+        ];
+
+        auto result = preprocess(context).sources;
+        assert(result["main"].strip == "That's no moon, it's a space station!");
+    }
+
 }
 
-// Pre-defined macros tests
+// Macros tests
 version (unittest) {
     @("Undefined Pre-defined macro")
     unittest {
