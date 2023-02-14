@@ -464,6 +464,7 @@ private void debpeek(const ref ParseContext parseCtx) {
     deb(parseCtx.peek.to!string);
 }
 //////
+
 version (unittest) {
     import std.exception : assertThrown;
     import std.string : strip;
