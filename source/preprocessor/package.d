@@ -84,8 +84,8 @@ private struct ParseContext {
     string[string] macros; // combine with definitions. keep "macros".
 
     ulong codePos;
-    ulong directiveStart; // rename to replace start
-    ulong directiveEnd; // rename to replace end
+    ulong replaceStart;
+    ulong replaceEnd;
     string directive;
     uint inclusions;
 }
@@ -145,13 +145,13 @@ private SourceCode processFile(const Name name, const ref SourceCode source, con
     parse(parseCtx, (const char chr, out bool stop) {
         if (chr == DirectiveStart) {
             foundMacroTokenBefore = false;
-            parseCtx.directiveStart = parseCtx.codePos - 1;
+            parseCtx.replaceStart = parseCtx.codePos - 1;
             parseCtx.directive = collectToken(parseCtx);
             processDirective(parseCtx, buildCtx);
 
             parseCtx.directive = "";
-            parseCtx.directiveStart = 0;
-            parseCtx.directiveEnd = 0;
+            parseCtx.replaceStart = 0;
+            parseCtx.replaceEnd = 0;
         } else if (chr == MacroStartEnd) {
             if (foundMacroTokenBefore) {
                 processPredefinedMacro(parseCtx);
@@ -212,7 +212,7 @@ private void processInclude(ref ParseContext parseCtx, const ref BuildContext bu
 
     parseCtx.codePos += 1;
     const string includeName = collectToken(parseCtx, ['"', '>']);
-    parseCtx.directiveEnd = parseCtx.codePos;
+    parseCtx.replaceEnd = parseCtx.codePos;
 
     auto includeSource = includeName in buildCtx.sources;
     if (includeSource is null && !absoluteInclusion) {
@@ -221,10 +221,10 @@ private void processInclude(ref ParseContext parseCtx, const ref BuildContext bu
     }
 
     if (includeSource is null) {
-        throw new PreprocessException(parseCtx, parseCtx.directiveStart, "Failed to include '" ~ includeName ~ "': It does not exist.");
+        throw new PreprocessException(parseCtx, parseCtx.replaceStart, "Failed to include '" ~ includeName ~ "': It does not exist.");
     }
 
-    parseCtx.replaceDirectiveStartToEnd(*includeSource);
+    parseCtx.replaceStartToEnd(*includeSource);
 }
 
 private void processIfCondition(ref ParseContext parseCtx) {
@@ -240,7 +240,7 @@ private void processIfNDefCondition(ref ParseContext parseCtx) {
 }
 
 private void processConditionalDirective(ref ParseContext parseCtx, const bool negate, const bool onlyCheckExistence) {
-    auto startOfConditionalBlock = parseCtx.directiveStart;
+    auto startOfConditionalBlock = parseCtx.replaceStart;
     parseCtx.codePos -= 1;
     parseCtx.skipWhiteSpaceTillEol();
 
@@ -271,12 +271,12 @@ private void processConditionalDirective(ref ParseContext parseCtx, const bool n
             processedElse = true;
         }
 
-        parseCtx.directiveStart = parseCtx.codePos - 1;
+        parseCtx.replaceStart = parseCtx.codePos - 1;
         conditionalDirective = parseCtx.collectToken();
     }
 
-    parseCtx.directiveEnd = parseCtx.codePos;
-    parseCtx.clearDirectiveStartToEnd();
+    parseCtx.replaceEnd = parseCtx.codePos;
+    parseCtx.clearStartToEnd();
 
     parseCtx.codePos = startOfConditionalBlock;
 }
@@ -298,15 +298,15 @@ private bool evaluateCondition(ref ParseContext parseCtx, const bool negate, con
 }
 
 private void acceptConditionalBody(ref ParseContext parseCtx) {
-    parseCtx.directiveEnd = parseCtx.codePos;
-    parseCtx.clearDirectiveStartToEnd();
+    parseCtx.replaceEnd = parseCtx.codePos;
+    parseCtx.clearStartToEnd();
     parseCtx.seekNextDirective(conditionalTerminators);
 }
 
 private void rejectConditionalBody(ref ParseContext parseCtx) {
     parseCtx.seekNextDirective(conditionalTerminators);
-    parseCtx.directiveEnd = parseCtx.codePos;
-    parseCtx.clearDirectiveStartToEnd();
+    parseCtx.replaceEnd = parseCtx.codePos;
+    parseCtx.clearStartToEnd();
 }
 
 private void processPredefinedMacro(ref ParseContext parseCtx) {
@@ -394,13 +394,13 @@ private void parse(ref ParseContext parseCtx, const char[] delimiters, void dele
     }
 }
 
-void clearDirectiveStartToEnd(ref ParseContext parseCtx) {
-    parseCtx.replaceDirectiveStartToEnd("");
+void clearStartToEnd(ref ParseContext parseCtx) {
+    parseCtx.replaceStartToEnd("");
 }
 
-void replaceDirectiveStartToEnd(ref ParseContext parseCtx, const string replacement) {
-    parseCtx.source.replaceInPlace(parseCtx.directiveStart, parseCtx.directiveEnd, replacement);
-    parseCtx.codePos = parseCtx.directiveStart;
+void replaceStartToEnd(ref ParseContext parseCtx, const string replacement) {
+    parseCtx.source.replaceInPlace(parseCtx.replaceStart, parseCtx.replaceEnd, replacement);
+    parseCtx.codePos = parseCtx.replaceStart;
 }
 
 private void calculateLineColumn(const ref ParseContext parseCtx, out ulong line, out ulong column) {
