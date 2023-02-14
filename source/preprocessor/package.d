@@ -32,11 +32,12 @@ private enum IncludeDirective = "include";
 private enum IfDirective = "if";
 private enum IfDefDirective = "ifdef";
 private enum IfNDefDirective = "ifndef";
+private enum ElsIfDirective = "elsif";
 private enum ElseDirective = "else";
 private enum EndIfDirective = "endif";
 
 private static const string[] conditionalTerminators = [
-    ElseDirective, EndIfDirective
+    ElsIfDirective, ElseDirective, EndIfDirective
 ];
 
 private enum FileMacro = "FILE";
@@ -80,11 +81,11 @@ private struct ParseContext {
     string name;
     SourceCode source;
     string[string] definitions;
-    string[string] macros;
+    string[string] macros; // combine with definitions. keep "macros".
 
     ulong codePos;
-    ulong directiveStart;
-    ulong directiveEnd;
+    ulong directiveStart; // rename to replace start
+    ulong directiveEnd; // rename to replace end
     string directive;
     uint inclusions;
 }
@@ -243,6 +244,44 @@ private void processConditionalDirective(ref ParseContext parseCtx, const bool n
     parseCtx.codePos -= 1;
     parseCtx.skipWhiteSpaceTillEol();
 
+    enum StartIfBlockDirective = "startif"; // or ifdef/ifndef
+    auto conditionalDirective = StartIfBlockDirective;
+    bool acceptedBody = false;
+    bool processedElse = false;
+    while (conditionalDirective != EndIfDirective) {
+        if (conditionalDirective == StartIfBlockDirective || conditionalDirective == ElsIfDirective) {
+            bool isTrue = evaluateCondition(parseCtx, negate, onlyCheckExistence);
+            if (isTrue && !acceptedBody) {
+                parseCtx.acceptConditionalBody();
+                acceptedBody = true;
+            } else {
+                parseCtx.rejectConditionalBody();
+            }
+        } else if (conditionalDirective == ElseDirective) {
+            if (processedElse) {
+                throw new ParseException(parseCtx, "#else directive defined multiple times. Only one #else block is allowed.");
+            }
+
+            if (acceptedBody) {
+                parseCtx.rejectConditionalBody();
+            } else {
+                parseCtx.acceptConditionalBody();
+            }
+
+            processedElse = true;
+        }
+
+        parseCtx.directiveStart = parseCtx.codePos - 1;
+        conditionalDirective = parseCtx.collectToken();
+    }
+
+    parseCtx.directiveEnd = parseCtx.codePos;
+    parseCtx.clearDirectiveStartToEnd();
+
+    parseCtx.codePos = startOfConditionalBlock;
+}
+
+private bool evaluateCondition(ref ParseContext parseCtx, const bool negate, const bool onlyCheckExistence) {
     auto condition = parseCtx.collectToken();
     auto definitionValue = condition in parseCtx.definitions;
     bool isTrue = definitionValue !is null;
@@ -255,38 +294,19 @@ private void processConditionalDirective(ref ParseContext parseCtx, const bool n
         isTrue = !isTrue;
     }
 
-    processConditionalBody(parseCtx, isTrue);
-    processConditionalDelimiter(parseCtx, true, !isTrue);
-    parseCtx.codePos = startOfConditionalBlock;
+    return isTrue;
 }
 
-private void processConditionalDelimiter(ref ParseContext parseCtx, const bool allowElse, const bool applyElse) {
-    const string delimiterDirective = parseCtx.collectToken();
-    parseCtx.directiveStart = parseCtx.codePos - delimiterDirective.length - 2;
-
-    if (delimiterDirective == EndIfDirective) {
-        parseCtx.directiveEnd = parseCtx.codePos;
-        parseCtx.replaceDirectiveStartToEnd("");
-    } else if (delimiterDirective == ElseDirective) {
-        if (!allowElse) {
-            throw new ParseException(parseCtx, "#else directive defined multiple times. Only one #else block is allowed.");
-        }
-
-        processConditionalBody(parseCtx, applyElse);
-        processConditionalDelimiter(parseCtx, false, false);
-    }
+private void acceptConditionalBody(ref ParseContext parseCtx) {
+    parseCtx.directiveEnd = parseCtx.codePos;
+    parseCtx.clearDirectiveStartToEnd();
+    parseCtx.seekNextDirective(conditionalTerminators);
 }
 
-private void processConditionalBody(ref ParseContext parseCtx, const bool applyBody) {
-    if (applyBody) {
-        parseCtx.directiveEnd = parseCtx.codePos;
-        parseCtx.clearDirectiveStartToEnd();
-        parseCtx.seekNextDirective(conditionalTerminators);
-    } else {
-        parseCtx.seekNextDirective(conditionalTerminators);
-        parseCtx.directiveEnd = parseCtx.codePos;
-        parseCtx.clearDirectiveStartToEnd();
-    }
+private void rejectConditionalBody(ref ParseContext parseCtx) {
+    parseCtx.seekNextDirective(conditionalTerminators);
+    parseCtx.directiveEnd = parseCtx.codePos;
+    parseCtx.clearDirectiveStartToEnd();
 }
 
 private void processPredefinedMacro(ref ParseContext parseCtx) {
@@ -936,6 +956,51 @@ version (unittest) {
         assert(result["main"].strip == "That's no moon, it's a space station!");
     }
 
+    @("Include elseif body in if block if else if is true")
+    unittest {
+        auto main = "
+            #if MOON
+                It's a moon
+            #elsif EARTH
+                Oh it's just earth.
+            #elsif FIRE
+                We're doing captain planet stuff now?
+            #else
+                That's no moon, it's a space station!
+            #endif
+        ";
+
+        auto context = BuildContext(["main": main]);
+        context.definitions = [
+            "MOON": "false",
+            "EARTH": "probably",
+            "FIRE": "true"
+        ];
+
+        auto result = preprocess(context).sources;
+        assert(result["main"].strip == "Oh it's just earth.");
+    }
+
+    @("Include if body only in if block if it is true")
+    unittest {
+        auto main = "
+            #if JA
+                Ja!
+            #elsif JA
+                Ja!
+            #else
+                Nee!
+            #endif
+        ";
+
+        auto context = BuildContext(["main": main]);
+        context.definitions = [
+            "JA": "ja!",
+        ];
+
+        auto result = preprocess(context).sources;
+        assert(result["main"].strip == "Ja!");
+    }
 }
 
 // Macros tests
@@ -991,7 +1056,8 @@ version (unittest) {
     // __TIMESTAMP__
 }
 
+//TODO: expand custom object macros
 //TODO: define/undef
-//TODO: if/elseif
 //TODO: error
 //TODO: #pragma once
+//TODO: conditionals in conditionals?
