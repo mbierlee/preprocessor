@@ -36,6 +36,7 @@ private enum ElsIfDirective = "elsif";
 private enum ElseDirective = "else";
 private enum EndIfDirective = "endif";
 private enum DefineDirective = "define";
+private enum UndefDirective = "undef";
 
 private static const string[] conditionalTerminators = [
     ElsIfDirective, ElseDirective, EndIfDirective
@@ -191,6 +192,9 @@ private void processDirective(ref ParseContext parseCtx, const ref BuildContext 
     case DefineDirective:
         processDefineDirective(parseCtx);
         break;
+    case UndefDirective:
+        processUndefDirective(parseCtx);
+        break;
     case EndIfDirective:
         throw new ParseException(parseCtx, "#endif directive found without accompanying starting conditional (#if/#ifdef)");
     case ElseDirective:
@@ -292,15 +296,28 @@ private void processConditionalDirective(ref ParseContext parseCtx, const bool n
 
 private void processDefineDirective(ref ParseContext parseCtx) {
     auto macroName = parseCtx.collect();
+    if (macroName.length == 0) {
+        throw new ParseException(parseCtx, "#define directive is missing name of macro.");
+    }
+
     string macroValue = null;
-    parseCtx.codePos -= 1;
-    auto isEndOfDefinition = endOfLineDelims.canFind(parseCtx.peek);
-    parseCtx.codePos += 1;
+    auto isEndOfDefinition = endOfLineDelims.canFind(parseCtx.peekLast);
     if (!isEndOfDefinition) {
         macroValue = parseCtx.collect(endOfLineDelims);
     }
 
     parseCtx.macros[macroName] = macroValue;
+    parseCtx.replaceEnd = parseCtx.codePos;
+    parseCtx.clearStartToEnd();
+}
+
+private void processUndefDirective(ref ParseContext parseCtx) {
+    auto macroName = parseCtx.collect();
+    if (macroName.length == 0) {
+        throw new ParseException(parseCtx, "#undef directive is missing name of macro.");
+    }
+
+    parseCtx.macros.remove(macroName);
     parseCtx.replaceEnd = parseCtx.codePos;
     parseCtx.clearStartToEnd();
 }
@@ -393,6 +410,10 @@ private void seekNext(ref ParseContext parseCtx, const char delimiter) {
 
 private char peek(const ref ParseContext parseCtx) {
     return parseCtx.source[parseCtx.codePos];
+}
+
+private char peekLast(const ref ParseContext parseCtx) {
+    return parseCtx.source[parseCtx.codePos - 1];
 }
 
 private string collect(ref ParseContext parseCtx, const char[] delimiters = endTokenDelims) {
@@ -1128,13 +1149,67 @@ version (unittest) {
         assert(result["main"].strip == "It's awwwn!");
     }
 
+    @("Fail when defining a macro but the name is missing")
+    unittest {
+        auto main = "
+            #define
+            Fail!
+        ";
+
+        auto context = BuildContext(["main": main]);
+        assertThrown!ParseException(preprocess(context));
+    }
+
+    @("Undefine macro")
+    unittest {
+        auto main = "
+            #define RTX_ON
+            #undef RTX_ON
+            #ifdef RTX_ON
+                It's on!
+            #else
+                It's all the way off.
+            #endif
+        ";
+
+        auto context = BuildContext(["main": main]);
+        auto result = preprocess(context).sources;
+        assert(result["main"].strip == "It's all the way off.");
+    }
+
+    @("Undefine pre-defined macro")
+    unittest {
+        auto main = "
+            #undef RTX_ON
+            #ifndef RTX_ON
+                It's all the way off.
+            #endif
+        ";
+
+        auto context = BuildContext(["main": main]);
+        context.macros = ["RTX_ON": "true"];
+
+        auto result = preprocess(context).sources;
+        assert(result["main"].strip == "It's all the way off.");
+    }
+
+    @("Fail when undefining a macro but the name is missing")
+    unittest {
+        auto main = "
+            #undef
+            Fail!
+        ";
+
+        auto context = BuildContext(["main": main]);
+        assertThrown!ParseException(preprocess(context));
+    }
+
     //TODO
     // __DATE__
     // __TIME__
     // __TIMESTAMP__
 }
 
-//TODO: undef
 //TODO: error
 //TODO: #pragma once
 //TODO: conditionals in conditionals?
