@@ -35,6 +35,7 @@ private enum IfNDefDirective = "ifndef";
 private enum ElsIfDirective = "elsif";
 private enum ElseDirective = "else";
 private enum EndIfDirective = "endif";
+private enum DefineDirective = "define";
 
 private static const string[] conditionalTerminators = [
     ElsIfDirective, ElseDirective, EndIfDirective
@@ -151,7 +152,7 @@ private SourceCode processFile(const Name name, const ref SourceCode source, con
         if (chr == DirectiveStart) {
             foundMacroTokenBefore = false;
             parseCtx.replaceStart = parseCtx.codePos - 1;
-            parseCtx.directive = collectToken(parseCtx);
+            parseCtx.directive = parseCtx.collect();
             processDirective(parseCtx, buildCtx);
 
             parseCtx.directive = "";
@@ -187,6 +188,9 @@ private void processDirective(ref ParseContext parseCtx, const ref BuildContext 
     case IfNDefDirective:
         processIfNDefCondition(parseCtx);
         break;
+    case DefineDirective:
+        processDefineDirective(parseCtx);
+        break;
     case EndIfDirective:
         throw new ParseException(parseCtx, "#endif directive found without accompanying starting conditional (#if/#ifdef)");
     case ElseDirective:
@@ -216,7 +220,7 @@ private void processInclude(ref ParseContext parseCtx, const ref BuildContext bu
     }
 
     parseCtx.codePos += 1;
-    const string includeName = collectToken(parseCtx, ['"', '>']);
+    const string includeName = parseCtx.collect(['"', '>']);
     parseCtx.replaceEnd = parseCtx.codePos;
 
     auto includeSource = includeName in buildCtx.sources;
@@ -277,7 +281,7 @@ private void processConditionalDirective(ref ParseContext parseCtx, const bool n
         }
 
         parseCtx.replaceStart = parseCtx.codePos - 1;
-        conditionalDirective = parseCtx.collectToken();
+        conditionalDirective = parseCtx.collect();
     }
 
     parseCtx.replaceEnd = parseCtx.codePos;
@@ -286,8 +290,23 @@ private void processConditionalDirective(ref ParseContext parseCtx, const bool n
     parseCtx.codePos = startOfConditionalBlock;
 }
 
+private void processDefineDirective(ref ParseContext parseCtx) {
+    auto macroName = parseCtx.collect();
+    string macroValue = null;
+    parseCtx.codePos -= 1;
+    auto isEndOfDefinition = endOfLineDelims.canFind(parseCtx.peek);
+    parseCtx.codePos += 1;
+    if (!isEndOfDefinition) {
+        macroValue = parseCtx.collect(endOfLineDelims);
+    }
+
+    parseCtx.macros[macroName] = macroValue;
+    parseCtx.replaceEnd = parseCtx.codePos;
+    parseCtx.clearStartToEnd();
+}
+
 private bool evaluateCondition(ref ParseContext parseCtx, const bool negate, const bool onlyCheckExistence) {
-    auto expression = parseCtx.collectToken();
+    auto expression = parseCtx.collect();
     if (expression.startsWith("__") && expression.endsWith("__")) {
         expression = expression[2 .. $ - 2];
     }
@@ -320,7 +339,7 @@ private void rejectConditionalBody(ref ParseContext parseCtx) {
 
 private void expandMacro(ref ParseContext parseCtx) {
     auto macroStart = parseCtx.codePos - 2;
-    auto macroName = parseCtx.collectToken([MacroStartEnd]);
+    auto macroName = parseCtx.collect([MacroStartEnd]);
     auto macroEnd = parseCtx.codePos;
     if (parseCtx.peek == MacroStartEnd) {
         macroEnd += 1;
@@ -349,7 +368,7 @@ private void seekNextDirective(ref ParseContext parseCtx, const string[] delimit
     while (!delimitingDirectives.canFind(nextDirective) && parseCtx.codePos <
         parseCtx.source.length) {
         parseCtx.seekNext('#');
-        nextDirective = parseCtx.collectToken();
+        nextDirective = parseCtx.collect();
     }
 
     if (nextDirective.length == 0) {
@@ -376,10 +395,10 @@ private char peek(const ref ParseContext parseCtx) {
     return parseCtx.source[parseCtx.codePos];
 }
 
-private string collectToken(ref ParseContext parseCtx, const char[] delimiters = endTokenDelims) {
-    string token;
-    parse(parseCtx, delimiters, (const char chr, out bool stop) { token ~= chr; });
-    return token;
+private string collect(ref ParseContext parseCtx, const char[] delimiters = endTokenDelims) {
+    string value;
+    parse(parseCtx, delimiters, (const char chr, out bool stop) { value ~= chr; });
+    return value;
 }
 
 private void parse(ref ParseContext parseCtx, void delegate(const char chr, out bool stop) func) {
@@ -1081,13 +1100,41 @@ version (unittest) {
         assert(result["main"] == "IM_AM_NOT_A_MACRO");
     }
 
+    @("Define an empty macro")
+    unittest {
+        auto main = "
+            #define RTX_ON
+            #ifdef RTX_ON
+                It's on!
+            #endif
+        ";
+
+        auto context = BuildContext(["main": main]);
+        auto result = preprocess(context).sources;
+        assert(result["main"].strip == "It's on!");
+    }
+
+    @("Define macro with value")
+    unittest {
+        auto main = "
+            #define RTX_ON true
+            #if RTX_ON
+                It's awwwn!
+            #endif
+        ";
+
+        auto context = BuildContext(["main": main]);
+        auto result = preprocess(context).sources;
+        assert(result["main"].strip == "It's awwwn!");
+    }
+
     //TODO
     // __DATE__
     // __TIME__
     // __TIMESTAMP__
 }
 
-//TODO: define/undef
+//TODO: undef
 //TODO: error
 //TODO: #pragma once
 //TODO: conditionals in conditionals?
