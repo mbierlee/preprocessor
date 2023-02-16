@@ -1306,6 +1306,31 @@ version (unittest) {
     }
 }
 
+// Advanced tests
+version (unittest) {
+    @("Inclusion guards")
+    unittest {
+        auto lib = "
+            #ifndef CAKE_PHP
+            #define CAKE_PHP
+            Cake!
+            #endif
+        ";
+
+        auto main = "
+            #include <cake.php>
+            #include <cake.php>
+        ";
+
+        BuildContext context;
+        context.mainSources = ["main.php": main];
+        context.sources = ["cake.php": lib];
+
+        auto result = preprocess(context).sources;
+        assert(result["main.php"].strip == "Cake!");
+    }
+}
+
 //TODO: error
 //TODO: #pragma once
 //TODO: conditionals in conditionals?
