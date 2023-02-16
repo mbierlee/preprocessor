@@ -38,6 +38,7 @@ private enum ElseDirective = "else";
 private enum EndIfDirective = "endif";
 private enum DefineDirective = "define";
 private enum UndefDirective = "undef";
+private enum ErrorDirective = "error";
 
 private static const string[] conditionalTerminators = [
     ElsIfDirective, ElseDirective, EndIfDirective
@@ -247,6 +248,9 @@ private void processDirective(ref ParseContext parseCtx, const ref BuildContext 
     case ElsIfDirective:
         processUnexpectedConditional(parseCtx, buildCtx);
         break;
+    case ErrorDirective:
+        processErrorDirective(parseCtx);
+        break;
     default:
         // Ignore directive. It may be of semantic importance to the source in another way.
     }
@@ -368,6 +372,11 @@ private void processUndefDirective(ref ParseContext parseCtx) {
     parseCtx.macros.remove(macroName);
     parseCtx.replaceEnd = parseCtx.codePos;
     parseCtx.clearStartToEnd();
+}
+
+private void processErrorDirective(ref ParseContext parseCtx) {
+    auto errorMessage = parseCtx.collect(endOfLineDelims);
+    throw new PreprocessException(parseCtx, parseCtx.codePos, errorMessage);
 }
 
 private void processUnexpectedConditional(const ref ParseContext parseCtx, const ref BuildContext buildCtx) {
@@ -592,6 +601,22 @@ version (unittest) {
 
     string stripAllWhiteSpace(string input) {
         return input.replace(' ', "").replace('\n', "");
+    }
+
+    void assertThrownMsg(ExceptionT : Throwable = Exception, ExpressionT)(
+        string expectedMessage, lazy ExpressionT expression) {
+        try {
+            expression;
+            assert(false, "No exception was thrown. Expected: " ~ typeid(ExceptionT).to!string);
+        } catch (ExceptionT e) {
+            assert(e.message == expectedMessage, "Exception message was different. Expected: " ~ expectedMessage ~
+                    ", actual: " ~ e.message);
+        } catch (Exception e) {
+            //dfmt off
+            assert(false, "Different type of exception was thrown. Expected: " ~
+                    typeid(ExceptionT).to!string ~ ", actual: " ~ typeid(typeof(e)).to!string);
+            //dfmt on
+        }
     }
 }
 
@@ -1362,6 +1387,35 @@ version (unittest) {
     }
 }
 
+// Error tests
+version (unittest) {
+    @("Error directive is thrown")
+    unittest {
+        auto main = "
+            #error This unit test should fail?
+        ";
+
+        auto context = BuildContext(["main": main]);
+        assertThrownMsg!PreprocessException("Error processing main(2,1): This unit test should fail?",
+            preprocess(context));
+    }
+
+    @("Error directive is not thrown when skipped in conditional")
+    unittest {
+        auto main = "
+            #ifdef __WINDOWS__
+                #error We don't support windows here!
+            #endif
+
+            Zen
+        ";
+
+        auto context = BuildContext(["main": main]);
+        auto result = preprocess(context).sources;
+        assert(result["main"].strip == "Zen");
+    }
+}
+
 // Advanced tests
 version (unittest) {
     @("Inclusion guards")
@@ -1387,6 +1441,6 @@ version (unittest) {
     }
 }
 
-//TODO: error
 //TODO: #pragma once
 //TODO: conditionals in conditionals?
+//TODO: Assert thrown messages
