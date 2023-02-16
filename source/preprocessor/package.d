@@ -76,6 +76,13 @@ struct BuildContext {
      * an endless inclusion cycle.
      */
     uint inclusionLimit = 4000;
+
+    /** 
+     * Whether the parser should ignore #elseif, #else and #endif
+     * directives that didn't come after a #if directive.
+     * If true they will be kept in the result.
+     */
+    bool ignoreUnmatchedConditionalDirectives = false;
 }
 
 /** 
@@ -232,9 +239,14 @@ private void processDirective(ref ParseContext parseCtx, const ref BuildContext 
         processUndefDirective(parseCtx);
         break;
     case EndIfDirective:
-        throw new ParseException(parseCtx, "#endif directive found without accompanying starting conditional (#if/#ifdef)");
+        processUnexpectedConditional(parseCtx, buildCtx);
+        break;
     case ElseDirective:
-        throw new ParseException(parseCtx, "#else directive found outside of conditional block");
+        processUnexpectedConditional(parseCtx, buildCtx);
+        break;
+    case ElsIfDirective:
+        processUnexpectedConditional(parseCtx, buildCtx);
+        break;
     default:
         // Ignore directive. It may be of semantic importance to the source in another way.
     }
@@ -356,6 +368,12 @@ private void processUndefDirective(ref ParseContext parseCtx) {
     parseCtx.macros.remove(macroName);
     parseCtx.replaceEnd = parseCtx.codePos;
     parseCtx.clearStartToEnd();
+}
+
+private void processUnexpectedConditional(const ref ParseContext parseCtx, const ref BuildContext buildCtx) {
+    if (!buildCtx.ignoreUnmatchedConditionalDirectives) {
+        throw new ParseException(parseCtx, "#endif directive found without accompanying starting conditional (#if/#ifdef)");
+    }
 }
 
 private bool evaluateCondition(ref ParseContext parseCtx, const bool negate, const bool onlyCheckExistence) {
@@ -750,6 +768,44 @@ version (unittest) {
         auto context = BuildContext(["main": main]);
 
         assertThrown!ParseException(preprocess(context));
+    }
+
+    @("Fail if a rogue #elsif is found")
+    unittest {
+        auto main = "#elsif";
+        auto context = BuildContext(["main": main]);
+
+        assertThrown!ParseException(preprocess(context));
+    }
+
+    @("Not fail if a rogue #endif is found and ignored")
+    unittest {
+        auto main = "#endif";
+        auto context = BuildContext(["main": main]);
+        context.ignoreUnmatchedConditionalDirectives = true;
+
+        auto result = preprocess(context).sources;
+        assert(result["main"].strip == "#endif");
+    }
+
+    @("Not fail if a rogue #else is found and ignored")
+    unittest {
+        auto main = "#else";
+        auto context = BuildContext(["main": main]);
+        context.ignoreUnmatchedConditionalDirectives = true;
+
+        auto result = preprocess(context).sources;
+        assert(result["main"].strip == "#else");
+    }
+
+    @("Not fail if a rogue #elsif is found and ignored")
+    unittest {
+        auto main = "#elsif";
+        auto context = BuildContext(["main": main]);
+        context.ignoreUnmatchedConditionalDirectives = true;
+
+        auto result = preprocess(context).sources;
+        assert(result["main"].strip == "#elsif");
     }
 
     @("Include body if token is defined")
