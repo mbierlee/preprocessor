@@ -159,8 +159,6 @@ ProcessingResult preprocess(const ref BuildContext context) {
         TimestampMacro: result.timestamp
     ];
 
-    result.timestamp.deb;
-
     const(SourceMap) sources = context.mainSources.length > 0 ? context.mainSources
         : context.sources;
 
