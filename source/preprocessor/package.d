@@ -16,7 +16,8 @@ import std.algorithm : canFind;
 import std.conv : to;
 import std.array : replaceInPlace;
 import std.path : dirName;
-import std.string : toLower, startsWith, endsWith;
+import std.string : toLower, startsWith, endsWith, capitalize, rightJustify;
+import std.datetime.systime : SysTime, Clock;
 
 alias SourceCode = string;
 alias Name = string;
@@ -44,6 +45,9 @@ private static const string[] conditionalTerminators = [
 
 private enum FileMacro = "FILE";
 private enum LineMacro = "LINE";
+private enum DateMacro = "DATE";
+private enum TimeMacro = "TIME";
+private enum TimestampMacro = "TIMESTAMP";
 
 /** 
  * A context containing information regarding the build process,
@@ -78,8 +82,26 @@ struct BuildContext {
  * Result with modified source files.
  */
 struct ProcessingResult {
-    // The processed (main) sources.
+    /// The processed (main) sources.
     SourceMap sources;
+
+    /**
+     * Textual date of when the processing started
+     * e.g: Feb 16 2023
+     */
+    string date;
+
+    /**
+     * Textual time of when the processing started
+     * e.g: 22:31:01
+     */
+    string time;
+
+    /**
+     * Textual timestamp of when the processing started
+     * e.g: Thu Feb 16 22:38:10 2023
+     */
+    string timestamp;
 }
 
 private struct ParseContext {
@@ -127,20 +149,36 @@ class PreprocessException : Exception {
  */
 ProcessingResult preprocess(const ref BuildContext context) {
     ProcessingResult result;
+    result.date = createDateString();
+    result.time = createTimeString();
+    result.timestamp = createTimestampString();
+
+    string[string] builtInMacros = [
+        DateMacro: result.date,
+        TimeMacro: result.time,
+        TimestampMacro: result.timestamp
+    ];
+
+    result.timestamp.deb;
+
     const(SourceMap) sources = context.mainSources.length > 0 ? context.mainSources
         : context.sources;
+
     foreach (Name name, SourceCode source; sources) {
-        result.sources[name] = processFile(name, source, context);
+        result.sources[name] = processFile(name, source, context, builtInMacros);
     }
 
     return result;
 }
 
-private SourceCode processFile(const Name name, const ref SourceCode source, const ref BuildContext buildCtx) {
-    string[string] builtInMacros = [
-        FileMacro: name,
-        LineMacro: "0"
-    ];
+private SourceCode processFile(
+    const Name name,
+    const ref SourceCode source,
+    const ref BuildContext buildCtx,
+    ref string[string] builtInMacros
+) {
+    builtInMacros[FileMacro] = name;
+    builtInMacros[LineMacro] = "0";
 
     string[string] macros = cast(string[string]) buildCtx.macros.dup;
     foreach (string macroName, string macroValue; builtInMacros) {
@@ -469,6 +507,32 @@ private void calculateLineColumn(const ref ParseContext parseCtx, in ulong codeP
 
         column += 1;
     }
+}
+
+private string createDateString() {
+    SysTime currentTime = Clock.currTime();
+    auto month = currentTime.month.to!string.capitalize;
+    auto day = currentTime.day.to!string.rightJustify(2, '0');
+    auto year = currentTime.year.to!string;
+    return month ~ " " ~ day ~ " " ~ year;
+}
+
+private string createTimeString() {
+    SysTime currentTime = Clock.currTime();
+    auto hour = currentTime.hour.to!string.rightJustify(2, '0');
+    auto minute = currentTime.minute.to!string.rightJustify(2, '0');
+    auto second = currentTime.second.to!string.rightJustify(2, '0');
+    return hour ~ ":" ~ minute ~ ":" ~ second;
+}
+
+private string createTimestampString() {
+    SysTime currentTime = Clock.currTime();
+    auto dayOfWeek = currentTime.dayOfWeek.to!string.capitalize;
+    auto month = currentTime.month.to!string.capitalize;
+    auto day = currentTime.day.to!string.rightJustify(2, '0');
+    auto time = createTimeString();
+    auto year = currentTime.year.to!string;
+    return dayOfWeek ~ " " ~ month ~ " " ~ day ~ " " ~ time ~ " " ~ year;
 }
 
 /////// Debugging convenience functions
@@ -1112,6 +1176,45 @@ version (unittest) {
         assert(result["main.c"].strip == "1"); // Code re-writing messes line numbers all up.... It truely is like a C-compiler!
     }
 
+    @("Built-in macro __DATE__ is defined")
+    unittest {
+        auto main = "
+            #ifdef __DATE__
+                __DATE__
+            #endif
+        ";
+
+        auto context = BuildContext(["main.c": main]);
+        auto result = preprocess(context);
+        assert(result.sources["main.c"].strip == result.date);
+    }
+
+    @("Built-in macro __TIME__ is defined")
+    unittest {
+        auto main = "
+            #ifdef __TIME__
+                __TIME__
+            #endif
+        ";
+
+        auto context = BuildContext(["main.c": main]);
+        auto result = preprocess(context);
+        assert(result.sources["main.c"].strip == result.time);
+    }
+
+    @("Built-in macro __TIMESTAMP__ is defined")
+    unittest {
+        auto main = "
+            #ifdef __TIMESTAMP__
+                __TIMESTAMP__
+            #endif
+        ";
+
+        auto context = BuildContext(["main.c": main]);
+        auto result = preprocess(context);
+        assert(result.sources["main.c"].strip == result.timestamp);
+    }
+
     @("Ignore detached second underscore as part of possible macro")
     unittest {
         auto main = "IM_AM_NOT_A_MACRO";
@@ -1203,11 +1306,6 @@ version (unittest) {
         auto context = BuildContext(["main": main]);
         assertThrown!ParseException(preprocess(context));
     }
-
-    //TODO
-    // __DATE__
-    // __TIME__
-    // __TIMESTAMP__
 }
 
 //TODO: error
