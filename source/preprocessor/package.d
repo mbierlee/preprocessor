@@ -213,7 +213,7 @@ private void processInclude(ref ParseContext parseCtx, const ref BuildContext bu
     parseCtx.inclusions += 1;
     parseCtx.codePos -= 1;
     parseCtx.skipWhiteSpaceTillEol();
-    char startChr = parseCtx.source[parseCtx.codePos];
+    char startChr = parseCtx.peek;
     bool absoluteInclusion;
     if (startChr == '"') {
         absoluteInclusion = false;
