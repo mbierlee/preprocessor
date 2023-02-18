@@ -1037,6 +1037,26 @@ version (unittest) {
         auto result = preprocess(context).sources;
         assert(result["main"].strip == "Zen");
     }
+
+    @("Error directive in include is thrown from include name, not main")
+    unittest {
+        auto include = "
+            #error Should say include.h
+        ";
+
+        auto main = "
+            #include <include.h>
+        ";
+
+        BuildContext context;
+        context.mainSources = ["main.c": main];
+        context.sources = ["include.h": include];
+
+        assertThrownMsg!PreprocessException(
+            "Error processing include.h(2,1): Should say include.h",
+            preprocess(context)
+        );
+    }
 }
 
 // Pragma tests
