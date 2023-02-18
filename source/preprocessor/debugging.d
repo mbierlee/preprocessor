@@ -37,7 +37,14 @@ package void debpos(const ref ParseContext parseCtx, ulong pos, bool showWhitspa
     auto cur = parseCtx.source[pos].to!string;
     auto post = parseCtx.source[pos + 1 .. $];
     auto state = pre ~ "[" ~ cur ~ "]" ~ post;
+    deb(state, showWhitspace);
+}
 
+package void debrange(const ref ParseContext parseCtx, ulong startPos, ulong endPos, bool showWhitspace = false) {
+    auto pre = parseCtx.source[0 .. startPos];
+    auto cur = parseCtx.source[startPos .. endPos];
+    auto post = parseCtx.source[endPos + 1 .. $];
+    auto state = pre ~ "[" ~ cur ~ "]" ~ post;
     deb(state, showWhitspace);
 }
 
