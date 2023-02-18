@@ -9,8 +9,7 @@
 
 module preprocessor.processing;
 
-import preprocessor.artifacts : SourceCode, Name, BuildContext, PreprocessException, ParseException, FileMacro,
-    LineMacro;
+import preprocessor.artifacts : BuildContext, PreprocessException, ParseException, FileMacro, LineMacro, MacroMap;
 import preprocessor.parsing : ParseContext, parse, collect, DirectiveStart, MacroStartEnd, skipWhiteSpaceTillEol, peek,
     replaceStartToEnd, clearStartToEnd, endOfLineDelims, peekLast, seekNextDirective, calculateLineColumn;
 import preprocessor.debugging;
@@ -36,21 +35,17 @@ private static const string[] conditionalTerminators = [
     ElsIfDirective, ElseDirective, EndIfDirective
 ];
 
-package SourceCode processFile(
-    const Name name,
-    const ref SourceCode source,
+package void processFile(
+    const string name,
+    const ref string inSource,
     const ref BuildContext buildCtx,
-    ref string[string] builtInMacros
+    ref MacroMap macros,
+    out string outSource,
 ) {
-    builtInMacros[FileMacro] = name;
-    builtInMacros[LineMacro] = "0";
+    macros[FileMacro] = name;
+    macros[LineMacro] = "0";
 
-    string[string] macros = cast(string[string]) buildCtx.macros.dup;
-    foreach (string macroName, string macroValue; builtInMacros) {
-        macros[macroName] = macroValue;
-    }
-
-    auto parseCtx = ParseContext(name, source, macros);
+    auto parseCtx = ParseContext(name, inSource, macros);
     bool foundMacroTokenBefore = false;
     parse(parseCtx, (const char chr, out bool stop) {
         if (chr == DirectiveStart) {
@@ -75,7 +70,7 @@ package SourceCode processFile(
 
     });
 
-    return parseCtx.source;
+    outSource = parseCtx.source;
 }
 
 private void processDirective(ref ParseContext parseCtx, const ref BuildContext buildCtx) {
@@ -116,12 +111,12 @@ private void processDirective(ref ParseContext parseCtx, const ref BuildContext 
 }
 
 private void processInclude(ref ParseContext parseCtx, const ref BuildContext buildCtx) {
-    if (parseCtx.inclusions >= buildCtx.inclusionLimit) {
+    if (parseCtx.inclusionDepth >= buildCtx.inclusionLimit) {
         throw new PreprocessException(parseCtx, "Inclusions has exceeded the limit of " ~
                 buildCtx.inclusionLimit.to!string ~ ". Adjust BuildContext.inclusionLimit to increase.");
     }
 
-    parseCtx.inclusions += 1;
+    parseCtx.inclusionDepth += 1;
     parseCtx.codePos -= 1;
     parseCtx.skipWhiteSpaceTillEol();
     char startChr = parseCtx.peek;

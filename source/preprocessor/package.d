@@ -23,29 +23,41 @@ import std.string : capitalize, rightJustify;
 /** 
  * Preprocess the sources contained in the given build context.
  * Params:
- *   context = Context used in the pre-processing run.
+ *   buildCtx = Context used in the pre-processing run.
  * Returns: A procesing result containing all processed (main) sources.
  */
-ProcessingResult preprocess(const ref BuildContext context) {
+ProcessingResult preprocess(const ref BuildContext buildCtx) {
     ProcessingResult result;
     result.date = createDateString();
     result.time = createTimeString();
     result.timestamp = createTimestampString();
 
-    string[string] builtInMacros = [
+    const MacroMap builtInMacros = [
         DateMacro: result.date,
         TimeMacro: result.time,
         TimestampMacro: result.timestamp
     ];
 
-    const(SourceMap) sources = context.mainSources.length > 0 ? context.mainSources
-        : context.sources;
+    const(SourceMap) sources = buildCtx.mainSources.length > 0 ? buildCtx.mainSources
+        : buildCtx.sources;
 
-    foreach (Name name, SourceCode source; sources) {
-        result.sources[name] = processFile(name, source, context, builtInMacros);
+    MacroMap macros = createInitialMacroMap(builtInMacros, buildCtx);
+    foreach (string name, string source; sources) {
+        string resultSource;
+        processFile(name, source, buildCtx, macros, resultSource);
+        result.sources[name] = resultSource;
     }
 
     return result;
+}
+
+private MacroMap createInitialMacroMap(const MacroMap builtInMacros, const ref BuildContext buildCtx) {
+    MacroMap macros = cast(MacroMap) buildCtx.macros.dup;
+    foreach (string macroName, string macroValue; builtInMacros) {
+        macros[macroName] = macroValue;
+    }
+
+    return macros;
 }
 
 private string createDateString() {

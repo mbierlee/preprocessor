@@ -9,7 +9,7 @@
 
 module preprocessor.parsing;
 
-import preprocessor.artifacts : SourceCode, ParseException;
+import preprocessor.artifacts : ParseException, MacroMap;
 
 import std.algorithm : canFind;
 import std.array : replaceInPlace;
@@ -22,14 +22,14 @@ package static const char[] whiteSpaceDelims = [' ', '\t'];
 
 package struct ParseContext {
     string name;
-    SourceCode source;
-    string[string] macros;
+    string source;
+    MacroMap macros;
 
     ulong codePos;
     ulong replaceStart;
     ulong replaceEnd;
     string directive;
-    uint inclusions;
+    uint inclusionDepth;
 }
 
 package void skipWhiteSpaceTillEol(ref ParseContext parseCtx) {

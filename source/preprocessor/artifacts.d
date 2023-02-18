@@ -13,9 +13,8 @@ import preprocessor.parsing : ParseContext, calculateLineColumn;
 
 import std.conv : to;
 
-alias SourceCode = string;
-alias Name = string;
-alias SourceMap = SourceCode[Name];
+alias SourceMap = string[string];
+alias MacroMap = string[string];
 
 enum FileMacro = "FILE";
 enum LineMacro = "LINE";
@@ -43,7 +42,7 @@ struct BuildContext {
      * A map of pre-defined macros. 
      * Built-in macros will override these.
      */
-    string[string] macros;
+    MacroMap macros;
 
     /**
      * The maximum amount of inclusions allowed. This is to prevent 
