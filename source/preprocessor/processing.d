@@ -90,36 +90,41 @@ private void processDirective(ref ParseContext parseCtx, const ref BuildContext 
     case IncludeDirective:
         processInclude(parseCtx, buildCtx);
         break;
+
     case IfDirective:
-        processIfCondition(parseCtx);
-        break;
     case IfDefDirective:
-        processIfDefCondition(parseCtx);
-        break;
     case IfNDefDirective:
-        processIfNDefCondition(parseCtx);
+        processConditionalDirective(parseCtx, parseCtx.directive);
         break;
+
     case DefineDirective:
         processDefineDirective(parseCtx);
         break;
+
     case UndefDirective:
         processUndefDirective(parseCtx);
         break;
+
     case EndIfDirective:
         processUnexpectedConditional(parseCtx, buildCtx);
         break;
+
     case ElseDirective:
         processUnexpectedConditional(parseCtx, buildCtx);
         break;
+
     case ElsIfDirective:
         processUnexpectedConditional(parseCtx, buildCtx);
         break;
+
     case ErrorDirective:
         processErrorDirective(parseCtx);
         break;
+
     case PragmaDirective:
         processPragmaDirective(parseCtx);
         break;
+
     default:
         // Ignore directive. It may be of semantic importance to the source in another way.
     }
@@ -179,16 +184,10 @@ private void processInclude(ref ParseContext parseCtx, const ref BuildContext bu
     parseCtx.replaceStartToEnd(processedIncludeSource);
 }
 
-private void processIfCondition(ref ParseContext parseCtx) {
-    processConditionalDirective(parseCtx, false, false);
-}
-
-private void processIfDefCondition(ref ParseContext parseCtx) {
-    processConditionalDirective(parseCtx, false, true);
-}
-
-private void processIfNDefCondition(ref ParseContext parseCtx) {
-    processConditionalDirective(parseCtx, true, true);
+private void processConditionalDirective(ref ParseContext parseCtx, const string directiveName) {
+    bool negate = directiveName == IfNDefDirective;
+    bool onlyCheckExistence = directiveName != IfDirective;
+    processConditionalDirective(parseCtx, negate, onlyCheckExistence);
 }
 
 private void processConditionalDirective(ref ParseContext parseCtx, const bool negate, const bool onlyCheckExistence) {
