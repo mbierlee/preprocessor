@@ -41,11 +41,13 @@ package void processFile(
     const ref BuildContext buildCtx,
     ref MacroMap macros,
     out string outSource,
+    const uint currentInclusionDepth = 0
 ) {
     macros[FileMacro] = name;
-    macros[LineMacro] = "0";
+    macros[LineMacro] = "true"; // For #if eval
 
     auto parseCtx = ParseContext(name, inSource, macros);
+    parseCtx.inclusionDepth = currentInclusionDepth;
     bool foundMacroTokenBefore = false;
     parse(parseCtx, (const char chr, out bool stop) {
         if (chr == DirectiveStart) {
@@ -116,7 +118,6 @@ private void processInclude(ref ParseContext parseCtx, const ref BuildContext bu
                 buildCtx.inclusionLimit.to!string ~ ". Adjust BuildContext.inclusionLimit to increase.");
     }
 
-    parseCtx.inclusionDepth += 1;
     parseCtx.codePos -= 1;
     parseCtx.skipWhiteSpaceTillEol();
     char startChr = parseCtx.peek;
@@ -143,7 +144,19 @@ private void processInclude(ref ParseContext parseCtx, const ref BuildContext bu
         throw new PreprocessException(parseCtx, parseCtx.replaceStart, "Failed to include '" ~ includeName ~ "': It does not exist.");
     }
 
-    parseCtx.replaceStartToEnd(*includeSource);
+    string processedIncludeSource;
+    processFile(
+        includeName,
+        *includeSource,
+        buildCtx,
+        parseCtx.macros,
+        processedIncludeSource,
+        parseCtx.inclusionDepth + 1
+    );
+
+    parseCtx.macros[FileMacro] = parseCtx.name;
+
+    parseCtx.replaceStartToEnd(processedIncludeSource);
 }
 
 private void processIfCondition(ref ParseContext parseCtx) {

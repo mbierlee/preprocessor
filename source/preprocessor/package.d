@@ -256,14 +256,14 @@ version (unittest) {
 
     @("Prevent endless inclusion cycle")
     unittest {
-        auto main = "#include \"main.txt\"";
+        auto main = "#include \"main.md\"";
         auto context = BuildContext([
-                "main.txt": main
+                "main.md": main
             ]);
         context.inclusionLimit = 5;
 
         assertThrownMsg!PreprocessException(
-            "Error processing main.txt(0,9): Inclusions has exceeded the limit of 5. Adjust BuildContext.inclusionLimit to increase.",
+            "Error processing main.md(0,9): Inclusions has exceeded the limit of 5. Adjust BuildContext.inclusionLimit to increase.",
             preprocess(context)
         );
     }
@@ -919,6 +919,92 @@ version (unittest) {
             preprocess(context)
         );
     }
+
+    @("Macro defined in include is available after include")
+    unittest {
+        auto sub = "
+            #define subby
+        ";
+
+        auto main = "
+            #ifdef subby
+                Should not be here!
+            #endif
+
+            #include <sub>
+
+             #ifdef subby
+                Should be here!
+            #endif
+        ";
+
+        BuildContext context;
+        context.mainSources = ["main": main];
+        context.sources = ["sub": sub];
+
+        auto result = preprocess(context).sources;
+        assert(result["main"].strip == "Should be here!");
+    }
+
+    @("Macro defined in main is available in include")
+    unittest {
+        auto sub = "
+            __DOG__
+        ";
+
+        auto main = "
+            #define DOG dog
+            #include <sub>
+        ";
+
+        BuildContext context;
+        context.mainSources = ["main": main];
+        context.sources = ["sub": sub];
+
+        auto result = preprocess(context).sources;
+        assert(result["main"].strip == "dog");
+    }
+
+    @("Includes can redefine macros")
+    unittest {
+        auto sub = "
+            __DOG__
+            #define DOG cat
+        ";
+
+        auto main = "
+            #define DOG dog
+            #include <sub>
+            __DOG__
+        ";
+
+        BuildContext context;
+        context.mainSources = ["main": main];
+        context.sources = ["sub": sub];
+
+        auto result = preprocess(context).sources;
+        assert(result["main"].stripAllWhiteSpace == "dogcat");
+    }
+
+    @("Filename macro used in include is properly expanded")
+    unittest {
+        auto sub = "
+            __FILE__
+        ";
+
+        auto main = "
+            #include <sub>
+            __FILE__
+        ";
+
+        BuildContext context;
+        context.mainSources = ["main": main];
+        context.sources = ["sub": sub];
+
+        auto result = preprocess(context).sources;
+        assert(result["main"].stripAllWhiteSpace == "submain");
+    }
+
 }
 
 // Error tests

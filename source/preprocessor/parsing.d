@@ -10,6 +10,7 @@
 module preprocessor.parsing;
 
 import preprocessor.artifacts : ParseException, MacroMap;
+import preprocessor.debugging;
 
 import std.algorithm : canFind;
 import std.array : replaceInPlace;
@@ -101,7 +102,7 @@ void clearStartToEnd(ref ParseContext parseCtx) {
 
 void replaceStartToEnd(ref ParseContext parseCtx, const string replacement) {
     parseCtx.source.replaceInPlace(parseCtx.replaceStart, parseCtx.replaceEnd, replacement);
-    parseCtx.codePos = parseCtx.replaceStart;
+    parseCtx.codePos = parseCtx.replaceStart + replacement.length;
 }
 
 package void calculateLineColumn(const ref ParseContext parseCtx, out ulong line, out ulong column) {
