@@ -44,7 +44,8 @@ ProcessingResult preprocess(const ref BuildContext buildCtx) {
     MacroMap macros = createInitialMacroMap(builtInMacros, buildCtx);
     foreach (string name, string source; sources) {
         string resultSource;
-        processFile(name, source, buildCtx, macros, resultSource);
+        string[] guardedInclusions;
+        processFile(name, source, buildCtx, macros, guardedInclusions, resultSource);
         result.sources[name] = resultSource;
     }
 
@@ -1038,6 +1039,42 @@ version (unittest) {
     }
 }
 
+// Pragma tests
+version (unittest) {
+    @("Pragma once guards against multiple inclusions")
+    unittest {
+        auto once = "
+            #pragma once
+            One time one!
+        ";
+
+        auto main = "
+            #include <once.d>
+            #include <once.d>
+        ";
+
+        BuildContext context;
+        context.sources = ["once.d": once];
+        context.mainSources = ["main.d": main];
+
+        auto result = preprocess(context).sources;
+        assert(result["main.d"].strip == "One time one!");
+    }
+
+    @("Throw on unsupported pragma extension")
+    unittest {
+        auto main = "
+            #pragma pizza
+        ";
+
+        auto context = BuildContext(["main": main]);
+        assertThrownMsg!PreprocessException(
+            "Error processing main(2,1): Pragma extension 'pizza' is unsupported.",
+            preprocess(context)
+        );
+    }
+}
+
 // Advanced tests
 version (unittest) {
     @("Inclusion guards")
@@ -1063,5 +1100,4 @@ version (unittest) {
     }
 }
 
-//TODO: #pragma once
 //TODO: conditionals in conditionals?

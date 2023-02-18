@@ -31,6 +31,7 @@ package struct ParseContext {
     ulong replaceEnd;
     string directive;
     uint inclusionDepth;
+    string[] guardedInclusions;
 }
 
 package void skipWhiteSpaceTillEol(ref ParseContext parseCtx) {

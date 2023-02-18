@@ -30,6 +30,9 @@ private enum EndIfDirective = "endif";
 private enum DefineDirective = "define";
 private enum UndefDirective = "undef";
 private enum ErrorDirective = "error";
+private enum PragmaDirective = "pragma";
+
+private enum PragmaOnceExtension = "once";
 
 private static const string[] conditionalTerminators = [
     ElsIfDirective, ElseDirective, EndIfDirective
@@ -40,14 +43,20 @@ package void processFile(
     const ref string inSource,
     const ref BuildContext buildCtx,
     ref MacroMap macros,
+    ref string[] guardedInclusions,
     out string outSource,
     const uint currentInclusionDepth = 0
 ) {
     macros[FileMacro] = name;
     macros[LineMacro] = "true"; // For #if eval
 
-    auto parseCtx = ParseContext(name, inSource, macros);
+    ParseContext parseCtx;
+    parseCtx.name = name;
+    parseCtx.source = inSource;
+    parseCtx.macros = macros;
+    parseCtx.guardedInclusions = guardedInclusions;
     parseCtx.inclusionDepth = currentInclusionDepth;
+
     bool foundMacroTokenBefore = false;
     parse(parseCtx, (const char chr, out bool stop) {
         if (chr == DirectiveStart) {
@@ -69,9 +78,10 @@ package void processFile(
         } else {
             foundMacroTokenBefore = false;
         }
-
     });
 
+    macros = parseCtx.macros;
+    guardedInclusions = parseCtx.guardedInclusions;
     outSource = parseCtx.source;
 }
 
@@ -106,6 +116,9 @@ private void processDirective(ref ParseContext parseCtx, const ref BuildContext 
         break;
     case ErrorDirective:
         processErrorDirective(parseCtx);
+        break;
+    case PragmaDirective:
+        processPragmaDirective(parseCtx);
         break;
     default:
         // Ignore directive. It may be of semantic importance to the source in another way.
@@ -144,18 +157,25 @@ private void processInclude(ref ParseContext parseCtx, const ref BuildContext bu
         throw new PreprocessException(parseCtx, parseCtx.replaceStart, "Failed to include '" ~ includeName ~ "': It does not exist.");
     }
 
+    if (parseCtx.guardedInclusions.canFind(includeName)) {
+        parseCtx.clearStartToEnd();
+        return;
+    }
+
     string processedIncludeSource;
+    string[] guardedInclusions = parseCtx.guardedInclusions;
     processFile(
         includeName,
         *includeSource,
         buildCtx,
         parseCtx.macros,
+        guardedInclusions,
         processedIncludeSource,
         parseCtx.inclusionDepth + 1
     );
 
     parseCtx.macros[FileMacro] = parseCtx.name;
-
+    parseCtx.guardedInclusions = guardedInclusions;
     parseCtx.replaceStartToEnd(processedIncludeSource);
 }
 
@@ -244,6 +264,17 @@ private void processUndefDirective(ref ParseContext parseCtx) {
 private void processErrorDirective(ref ParseContext parseCtx) {
     auto errorMessage = parseCtx.collect(endOfLineDelims);
     throw new PreprocessException(parseCtx, errorMessage);
+}
+
+private void processPragmaDirective(ref ParseContext parseCtx) {
+    auto extensionName = parseCtx.collect();
+    if (extensionName != PragmaOnceExtension) {
+        throw new PreprocessException(parseCtx, "Pragma extension '" ~ extensionName ~ "' is unsupported.");
+    }
+
+    parseCtx.guardedInclusions ~= parseCtx.name;
+    parseCtx.replaceEnd = parseCtx.codePos;
+    parseCtx.clearStartToEnd();
 }
 
 private void processUnexpectedConditional(const ref ParseContext parseCtx, const ref BuildContext buildCtx) {
