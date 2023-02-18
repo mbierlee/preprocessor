@@ -90,8 +90,8 @@ version (unittest) {
             expression;
             assert(false, "No exception was thrown. Expected: " ~ typeid(ExceptionT).to!string);
         } catch (ExceptionT e) {
-            assert(e.message == expectedMessage, "Exception message was different. Expected: " ~ expectedMessage ~
-                    ", actual: " ~ e.message);
+            assert(e.message == expectedMessage, "Exception message was different. Expected: \"" ~ expectedMessage ~
+                    "\", actual: \"" ~ e.message ~ "\"");
         } catch (Exception e) {
             //dfmt off
             assert(false, "Different type of exception was thrown. Expected: " ~
@@ -208,7 +208,10 @@ version (unittest) {
                 "main.txt": main
             ]);
 
-        assertThrown!ParseException(preprocess(context));
+        assertThrownMsg!ParseException(
+            "Error processing main.txt(2,1): Parse error: Failed to parse include directive: Expected \" or <.",
+            preprocess(context)
+        );
     }
 
     @("Fail to include when filename does not start with quote or <")
@@ -218,17 +221,23 @@ version (unittest) {
                 "main.txt": main
             ]);
 
-        assertThrown!ParseException(preprocess(context));
+        assertThrownMsg!ParseException(
+            "Error processing main.txt(0,9): Parse error: Failed to parse include directive: Expected \" or <.",
+            preprocess(context)
+        );
     }
 
-    @("Fail to include when filename does not start with quote or <")
+    @("Fail to include when included source is not in build context")
     unittest {
         auto main = "#include <notfound.404>";
         auto context = BuildContext([
                 "main.txt": main
             ]);
 
-        assertThrown!PreprocessException(preprocess(context));
+        assertThrownMsg!PreprocessException(
+            "Error processing main.txt(0,0): Failed to include 'notfound.404': It does not exist.",
+            preprocess(context)
+        );
     }
 
     @("Prevent endless inclusion cycle")
@@ -239,7 +248,10 @@ version (unittest) {
             ]);
         context.inclusionLimit = 5;
 
-        assertThrown!PreprocessException(preprocess(context));
+        assertThrownMsg!PreprocessException(
+            "Error processing main.txt(0,9): Inclusions has exceeded the limit of 5. Adjust BuildContext.inclusionLimit to increase.",
+            preprocess(context)
+        );
     }
 
     @("Inclusions using quotes are directory-aware and relative")
@@ -265,7 +277,10 @@ version (unittest) {
         auto main = "#endif";
         auto context = BuildContext(["main": main]);
 
-        assertThrown!ParseException(preprocess(context));
+        assertThrownMsg!ParseException(
+            "Error processing main(0,6): Parse error: #endif directive found without accompanying starting conditional (#if/#ifdef)",
+            preprocess(context)
+        );
     }
 
     @("Fail if a rogue #else is found")
@@ -273,7 +288,10 @@ version (unittest) {
         auto main = "#else";
         auto context = BuildContext(["main": main]);
 
-        assertThrown!ParseException(preprocess(context));
+        assertThrownMsg!ParseException(
+            "Error processing main(0,5): Parse error: #endif directive found without accompanying starting conditional (#if/#ifdef)",
+            preprocess(context)
+        );
     }
 
     @("Fail if a rogue #elsif is found")
@@ -281,7 +299,10 @@ version (unittest) {
         auto main = "#elsif";
         auto context = BuildContext(["main": main]);
 
-        assertThrown!ParseException(preprocess(context));
+        assertThrownMsg!ParseException(
+            "Error processing main(0,6): Parse error: #endif directive found without accompanying starting conditional (#if/#ifdef)",
+            preprocess(context)
+        );
     }
 
     @("Not fail if a rogue #endif is found and ignored")
@@ -399,7 +420,10 @@ version (unittest) {
         ";
 
         auto context = BuildContext(["main": main]);
-        assertThrown!ParseException(preprocess(context));
+        assertThrownMsg!ParseException(
+            "Error processing main(3,1): Parse error: #else directive defined multiple times. Only one #else block is allowed.",
+            preprocess(context)
+        );
     }
 
     @("Fail when end of file is reached before conditional terminator")
@@ -410,7 +434,10 @@ version (unittest) {
         ";
 
         auto context = BuildContext(["main": main]);
-        assertThrown!ParseException(preprocess(context));
+        assertThrownMsg!ParseException(
+            "Error processing main(3,9): Parse error: Unexpected end of file while processing directive.",
+            preprocess(context)
+        );
     }
 
     @("Include body if token is not defined in ifndef")
@@ -542,7 +569,10 @@ version (unittest) {
 
         auto context = BuildContext(["main": main]);
 
-        assertThrown!ParseException(preprocess(context));
+        assertThrownMsg!ParseException(
+            "Error processing main(2,1): Parse error: #endif directive found without accompanying starting conditional (#if/#ifdef)",
+            preprocess(context)
+        );
     }
 
     @("Conditionals inside of included code is supported")
@@ -686,7 +716,10 @@ version (unittest) {
         ";
 
         auto context = BuildContext(["main.c": main]);
-        assertThrown!ParseException(preprocess(context));
+        assertThrownMsg!ParseException(
+            "Error processing main.c(1,21): Parse error: Cannot expand macro __MOTOR__, it is undefined.",
+            preprocess(context)
+        );
     }
 
     @("Expand custom pre-defined macro")
@@ -820,7 +853,10 @@ version (unittest) {
         ";
 
         auto context = BuildContext(["main": main]);
-        assertThrown!ParseException(preprocess(context));
+        assertThrownMsg!ParseException(
+            "Error processing main(2,2): Parse error: #define directive is missing name of macro.",
+            preprocess(context)
+        );
     }
 
     @("Undefine macro")
@@ -864,7 +900,10 @@ version (unittest) {
         ";
 
         auto context = BuildContext(["main": main]);
-        assertThrown!ParseException(preprocess(context));
+        assertThrownMsg!ParseException(
+            "Error processing main(2,2): Parse error: #undef directive is missing name of macro.",
+            preprocess(context)
+        );
     }
 }
 
@@ -877,8 +916,10 @@ version (unittest) {
         ";
 
         auto context = BuildContext(["main": main]);
-        assertThrownMsg!PreprocessException("Error processing main(2,1): This unit test should fail?",
-            preprocess(context));
+        assertThrownMsg!PreprocessException(
+            "Error processing main(2,1): This unit test should fail?",
+            preprocess(context)
+        );
     }
 
     @("Error directive is not thrown when skipped in conditional")
@@ -924,4 +965,3 @@ version (unittest) {
 
 //TODO: #pragma once
 //TODO: conditionals in conditionals?
-//TODO: Assert thrown messages
