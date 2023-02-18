@@ -13,6 +13,7 @@ import preprocessor.artifacts : SourceCode, Name, BuildContext, PreprocessExcept
     LineMacro;
 import preprocessor.parsing : ParseContext, parse, collect, DirectiveStart, MacroStartEnd, skipWhiteSpaceTillEol, peek,
     replaceStartToEnd, clearStartToEnd, endOfLineDelims, peekLast, seekNextDirective, calculateLineColumn;
+import preprocessor.debugging;
 
 import std.conv : to;
 import std.path : dirName;

@@ -13,7 +13,7 @@ import preprocessor.parsing : ParseContext, peek;
 
 import std.conv : to;
 
-private void deb(string message, bool showWhitspace = false) {
+package void deb(string message, bool showWhitspace = false) {
     if (showWhitspace) {
         import std.string : replace;
 
@@ -28,11 +28,11 @@ private void deb(string message, bool showWhitspace = false) {
     writeln(message);
 }
 
-private void deb(const ref ParseContext parseCtx, bool showWhitspace = false) {
+package void deb(const ref ParseContext parseCtx, bool showWhitspace = false) {
     debpos(parseCtx, parseCtx.codePos, showWhitspace);
 }
 
-private void debpos(const ref ParseContext parseCtx, ulong pos, bool showWhitspace = false) {
+package void debpos(const ref ParseContext parseCtx, ulong pos, bool showWhitspace = false) {
     auto pre = parseCtx.source[0 .. pos];
     auto cur = parseCtx.source[pos].to!string;
     auto post = parseCtx.source[pos + 1 .. $];
@@ -41,6 +41,6 @@ private void debpos(const ref ParseContext parseCtx, ulong pos, bool showWhitspa
     deb(state, showWhitspace);
 }
 
-private void debpeek(const ref ParseContext parseCtx) {
+package void debpeek(const ref ParseContext parseCtx) {
     deb(parseCtx.peek.to!string);
 }

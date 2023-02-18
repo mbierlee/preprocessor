@@ -75,6 +75,8 @@ private string createTimestampString() {
 }
 
 version (unittest) {
+    import preprocessor.debugging;
+
     import std.exception : assertThrown;
     import std.string : strip;
     import std.array : replace;
