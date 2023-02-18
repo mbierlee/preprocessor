@@ -100,6 +100,10 @@ class ParseException : PreprocessException {
  * Except for parsing errors, they will be thrown as a ParseException.
  */
 class PreprocessException : Exception {
+    this(in ref ParseContext parseCtx, string msg, string file = __FILE__, size_t line = __LINE__) {
+        this(parseCtx, parseCtx.codePos, msg, file, line);
+    }
+
     this(in ref ParseContext parseCtx, ulong codePos, string msg, string file = __FILE__, size_t line = __LINE__) {
         ulong srcLine;
         ulong srcColumn;

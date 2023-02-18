@@ -117,7 +117,7 @@ private void processDirective(ref ParseContext parseCtx, const ref BuildContext 
 
 private void processInclude(ref ParseContext parseCtx, const ref BuildContext buildCtx) {
     if (parseCtx.inclusions >= buildCtx.inclusionLimit) {
-        throw new PreprocessException(parseCtx, parseCtx.codePos, "Inclusions has exceeded the limit of " ~
+        throw new PreprocessException(parseCtx, "Inclusions has exceeded the limit of " ~
                 buildCtx.inclusionLimit.to!string ~ ". Adjust BuildContext.inclusionLimit to increase.");
     }
 
@@ -235,7 +235,7 @@ private void processUndefDirective(ref ParseContext parseCtx) {
 
 private void processErrorDirective(ref ParseContext parseCtx) {
     auto errorMessage = parseCtx.collect(endOfLineDelims);
-    throw new PreprocessException(parseCtx, parseCtx.codePos, errorMessage);
+    throw new PreprocessException(parseCtx, errorMessage);
 }
 
 private void processUnexpectedConditional(const ref ParseContext parseCtx, const ref BuildContext buildCtx) {
