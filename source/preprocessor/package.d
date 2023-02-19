@@ -849,7 +849,7 @@ version (unittest) {
     @("Define macro with value")
     unittest {
         auto main = "
-            #define RTX_ON true
+            #define RTX_ON \"true\"
             #if RTX_ON
                 It's awwwn!
             #endif
@@ -954,7 +954,7 @@ version (unittest) {
         ";
 
         auto main = "
-            #define DOG dog
+            #define DOG \"dog\"
             #include <sub>
         ";
 
@@ -970,11 +970,11 @@ version (unittest) {
     unittest {
         auto sub = "
             __DOG__
-            #define DOG cat
+            #define DOG \"cat\"
         ";
 
         auto main = "
-            #define DOG dog
+            #define DOG \"dog\"
             #include <sub>
             __DOG__
         ";

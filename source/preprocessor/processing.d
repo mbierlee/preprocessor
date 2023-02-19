@@ -244,7 +244,8 @@ private void processDefineDirective(ref ParseContext parseCtx) {
     string macroValue = null;
     auto isEndOfDefinition = endOfLineDelims.canFind(parseCtx.peekLast);
     if (!isEndOfDefinition) {
-        macroValue = parseCtx.collect(endOfLineDelims);
+        parseCtx.seekNext('"');
+        macroValue = parseCtx.collect(endOfLineDelims ~ '"');
     }
 
     parseCtx.macros[macroName] = macroValue;
