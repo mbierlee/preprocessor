@@ -1,10 +1,10 @@
-# Pre-Processor Language Specifications
+# Preprocessor Language Specifications
 
-The pre-processor language is modeled after C's standard pre-processor language. However, some differences exist and not everything is supported.
+The preprocessor language is modeled after C's standard preprocessor language. However, some differences exist and not everything is supported.
 
 ## Convention
 
-Specification examples show how to use the pre-processor. For example, a directive definition is written as such:
+Specification examples show how to use the preprocessor. For example, a directive definition is written as such:
 
     #directive <mandatory> [optional]
 
@@ -18,7 +18,7 @@ _main.c_
 #include <stdio.h>
 
 int main() {
-    printf("Hello pre-processor.");
+    printf("Hello preprocessor.");
 }
 ```
 
@@ -28,7 +28,7 @@ Because the language is similar to C, C examples will be used. These examples ma
 
 ## Directives
 
-Directives control the pre-processor; they tell it what to do and how to modify the given source code. Directive tokens always start with a `#`.
+Directives control the preprocessor; they tell it what to do and how to modify the given source code. Directive tokens always start with a `#`.
 
 ### `#include`
 
@@ -50,11 +50,11 @@ _main.h_
 
 ```c
 void printHello() {
-    printf("Hello pre-processor.");
+    printf("Hello preprocessor.");
 }
 ```
 
-All contents of `main.h` will be included into `main.c`. Since the pre-processor is language agnostic, the comment will also be included as-is.
+All contents of `main.h` will be included into `main.c`. Since the preprocessor is language agnostic, the comment will also be included as-is.
 
 Includes can also be included using `<` and `>` (diamonds):
 
@@ -84,7 +84,7 @@ _main.c_
 #endif
 ```
 
-Currently only _object-like macros_ are supported as expressions. These need to be pre-defined either in sources or when calling the pre-processor.
+Currently only _object-like macros_ are supported as expressions. These need to be pre-defined either in sources or when calling the preprocessor.
 
 _Note: conditional directives inside of conditional directives are not supported._
 
@@ -107,7 +107,7 @@ _main.c_
 #endif
 ```
 
-_Note: There are no pre-defined platform macros in the pre-processor. These need to be manually defined in your D code._
+_Note: There are no pre-defined platform macros in the preprocessor. These need to be manually defined in your D code._
 
 _Note 2: conditional directives inside of conditional directives are not supported._
 
@@ -175,7 +175,7 @@ _winlib.h_
 
     #pragma <extension parameters>
 
-Pragma directives are used to call custom pre-processor methods.
+Pragma directives are used to call custom preprocessor methods.
 At the moment only one pragma extension is supported: `once`.
 
 #### `#pragma once`

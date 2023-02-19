@@ -1,5 +1,5 @@
 /**
- * A language-agnostic C-like pre-processor.
+ * A language-agnostic C-like preprocessor.
  * Only UTF-8 text is supported.
  *
  * Authors:

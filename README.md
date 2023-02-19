@@ -1,4 +1,4 @@
-# Pre-Processor Library
+# Language-agnostic Preprocessor for D
 
 Version 1.0.0  
 Copyright 2023 Mike Bierlee  
@@ -6,7 +6,8 @@ Licensed under the terms of the MIT license - See [LICENSE.txt](LICENSE.txt)
 
 [![DUB Package](https://img.shields.io/dub/v/preprocessor.svg)](https://code.dlang.org/packages/preprocessor)
 
-A language-agnostic pre-processor library for D. It allows you to pre-process code or text in any language using C-like directives. In some projects for example it is used to pre-process GLSL shader sources.
+A language-agnostic preprocessor library for D. It allows you to pre-process code or text in any language using C-like directives. In some projects for example it is used to pre-process GLSL shader sources.
+This is not a CLI tool, only a library. The library does not deal with reading or writing files, that is up to the user. 
 
 See the `examples/` directory for how to use it and [SPECS.md](SPECS.md) for more details on what is supported in the pre-processing language. Finally, if you want to see some detailed examples, see the unittests in [source/preprocessor/package.d](package.d).
 

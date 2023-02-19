@@ -1,6 +1,6 @@
 {
   "name": "preprocessor",
-  "description": "A lanuage agnostic C-like preprocessor for D",
+  "description": "A language agnostic, C-like preprocessor for D",
   "copyright": "Copyright © 2023, Mike Bierlee",
   "authors": ["Mike Bierlee"],
   "license": "mit",

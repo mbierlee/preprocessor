@@ -35,7 +35,7 @@ void main() {
         "ENABLE_NETWORKING": "true"
     ];
 
-    // Finally call the pre-processor
+    // Finally call the preprocessor
     ProcessingResult result = preprocess(buildCtx);
 
     // Now for the results:
