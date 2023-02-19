@@ -309,13 +309,13 @@ version (unittest) {
         );
     }
 
-    @("Fail if a rogue #elsif is found")
+    @("Fail if a rogue #elif is found")
     unittest {
-        auto main = "#elsif";
+        auto main = "#elif";
         auto context = BuildContext(["main": main]);
 
         assertThrownMsg!ParseException(
-            "Error processing main(0,6): Parse error: #endif directive found without accompanying starting conditional (#if/#ifdef)",
+            "Error processing main(0,5): Parse error: #endif directive found without accompanying starting conditional (#if/#ifdef)",
             preprocess(context)
         );
     }
@@ -340,14 +340,14 @@ version (unittest) {
         assert(result["main"].strip == "#else");
     }
 
-    @("Not fail if a rogue #elsif is found and ignored")
+    @("Not fail if a rogue #elif is found and ignored")
     unittest {
-        auto main = "#elsif";
+        auto main = "#elif";
         auto context = BuildContext(["main": main]);
         context.ignoreUnmatchedConditionalDirectives = true;
 
         auto result = preprocess(context).sources;
-        assert(result["main"].strip == "#elsif");
+        assert(result["main"].strip == "#elif");
     }
 
     @("Include body if token is defined")
@@ -680,9 +680,9 @@ version (unittest) {
         auto main = "
             #if MOON
                 It's a moon
-            #elsif EARTH
+            #elif EARTH
                 Oh it's just earth.
-            #elsif FIRE
+            #elif FIRE
                 We're doing captain planet stuff now?
             #else
                 That's no moon, it's a space station!
@@ -705,7 +705,7 @@ version (unittest) {
         auto main = "
             #if JA
                 Ja!
-            #elsif JA
+            #elif JA
                 Ja!
             #else
                 Nee!

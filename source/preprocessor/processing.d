@@ -24,7 +24,7 @@ private enum IncludeDirective = "include";
 private enum IfDirective = "if";
 private enum IfDefDirective = "ifdef";
 private enum IfNDefDirective = "ifndef";
-private enum ElsIfDirective = "elsif";
+private enum ElIfDirective = "elif";
 private enum ElseDirective = "else";
 private enum EndIfDirective = "endif";
 private enum DefineDirective = "define";
@@ -35,7 +35,7 @@ private enum PragmaDirective = "pragma";
 private enum PragmaOnceExtension = "once";
 
 private static const string[] conditionalTerminators = [
-    ElsIfDirective, ElseDirective, EndIfDirective
+    ElIfDirective, ElseDirective, EndIfDirective
 ];
 
 package void processFile(
@@ -113,7 +113,7 @@ private void processDirective(ref ParseContext parseCtx, const ref BuildContext 
         processUnexpectedConditional(parseCtx, buildCtx);
         break;
 
-    case ElsIfDirective:
+    case ElIfDirective:
         processUnexpectedConditional(parseCtx, buildCtx);
         break;
 
@@ -200,7 +200,7 @@ private void processConditionalDirective(ref ParseContext parseCtx, const bool n
     bool acceptedBody = false;
     bool processedElse = false;
     while (conditionalDirective != EndIfDirective) {
-        if (conditionalDirective == StartIfBlockDirective || conditionalDirective == ElsIfDirective) {
+        if (conditionalDirective == StartIfBlockDirective || conditionalDirective == ElIfDirective) {
             bool isTrue = evaluateCondition(parseCtx, negate, onlyCheckExistence);
             if (isTrue && !acceptedBody) {
                 parseCtx.acceptConditionalBody();
