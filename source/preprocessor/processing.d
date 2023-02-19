@@ -12,13 +12,14 @@ module preprocessor.processing;
 import preprocessor.artifacts : BuildContext, PreprocessException, ParseException, FileMacro, LineMacro, MacroMap,
     builtInMacros;
 import preprocessor.parsing : ParseContext, parse, collect, DirectiveStart, MacroStartEnd, skipWhiteSpaceTillEol, peek,
-    replaceStartToEnd, clearStartToEnd, endOfLineDelims, peekLast, seekNextDirective, calculateLineColumn, seekNext;
+    replaceStartToEnd, clearStartToEnd, endOfLineDelims, peekLast, seekNextDirective, calculateLineColumn, seekNext,
+    collectTillString;
 import preprocessor.debugging;
 
 import std.conv : to;
 import std.path : dirName;
 import std.algorithm : canFind;
-import std.string : toLower, startsWith, endsWith;
+import std.string : toLower, startsWith, endsWith, strip;
 import std.array : replaceInPlace;
 
 private enum IncludeDirective = "include";
@@ -244,8 +245,10 @@ private void processDefineDirective(ref ParseContext parseCtx) {
     string macroValue = null;
     auto isEndOfDefinition = endOfLineDelims.canFind(parseCtx.peekLast);
     if (!isEndOfDefinition) {
-        parseCtx.seekNext('"');
-        macroValue = parseCtx.collect(endOfLineDelims ~ '"');
+        macroValue = parseCtx.collect(endOfLineDelims).strip;
+        if (macroValue[0] == '"' && macroValue[$ - 1] == '"') {
+            macroValue = macroValue[1 .. $ - 1];
+        }
     }
 
     parseCtx.macros[macroName] = macroValue;
@@ -323,7 +326,7 @@ private void rejectConditionalBody(ref ParseContext parseCtx) {
 
 private void expandMacro(ref ParseContext parseCtx) {
     auto macroStart = parseCtx.codePos - 2;
-    auto macroName = parseCtx.collect([MacroStartEnd]);
+    auto macroName = parseCtx.collectTillString("__");
     auto macroEnd = parseCtx.codePos;
     if (parseCtx.peek == MacroStartEnd) {
         macroEnd += 1;

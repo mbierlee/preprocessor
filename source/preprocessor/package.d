@@ -732,7 +732,7 @@ version (unittest) {
 
         auto context = BuildContext(["main.c": main]);
         assertThrownMsg!ParseException(
-            "Error processing main.c(1,21): Parse error: Cannot expand macro __MOTOR__, it is undefined.",
+            "Error processing main.c(1,22): Parse error: Cannot expand macro __MOTOR__, it is undefined.",
             preprocess(context)
         );
     }
@@ -1032,6 +1032,22 @@ version (unittest) {
         );
     }
 
+    @("Macros defined without quotes are also possible")
+    unittest {
+        auto main = "
+            #define FILE_SIZE 1024
+            __FILE_SIZE__
+
+            #define SHOW_UNIT true
+            #if SHOW_UNIT
+                kB
+            #endif
+        ";
+
+        auto context = BuildContext(["main": main]);
+        auto result = preprocess(context).sources;
+        assert(result["main"].stripAllWhiteSpace == "1024kB");
+    }
 }
 
 // Error tests

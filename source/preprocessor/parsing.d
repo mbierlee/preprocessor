@@ -14,6 +14,7 @@ import preprocessor.debugging;
 
 import std.algorithm : canFind;
 import std.array : replaceInPlace;
+import std.string : endsWith;
 
 package enum DirectiveStart = '#';
 package enum MacroStartEnd = '_';
@@ -58,6 +59,19 @@ package char peekLast(const ref ParseContext parseCtx) {
 package string collect(ref ParseContext parseCtx, const char[] delimiters = endTokenDelims) {
     string value;
     parse(parseCtx, delimiters, (const char chr, out bool stop) { value ~= chr; });
+    return value;
+}
+
+package string collectTillString(ref ParseContext parseCtx, const string delimiter) {
+    string value;
+    parse(parseCtx, (const char chr, out bool stop) {
+        value ~= chr;
+        if (value.endsWith(delimiter)) {
+            stop = true;
+            value = value[0 .. $ - delimiter.length];
+        }
+    });
+
     return value;
 }
 
