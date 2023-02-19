@@ -18,8 +18,8 @@ import std.array : replaceInPlace;
 package enum DirectiveStart = '#';
 package enum MacroStartEnd = '_';
 package static const char[] endOfLineDelims = ['\n', '\r'];
-package static const char[] endTokenDelims = [' ', '\t', '\n', '\r'];
 package static const char[] whiteSpaceDelims = [' ', '\t'];
+package static const char[] endTokenDelims = endOfLineDelims ~ whiteSpaceDelims;
 
 package struct ParseContext {
     string name;

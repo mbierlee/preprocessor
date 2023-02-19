@@ -1039,12 +1039,12 @@ version (unittest) {
     @("Error directive is thrown")
     unittest {
         auto main = "
-            #error This unit test should fail?
+            #error \"This unit test should fail?\"
         ";
 
         auto context = BuildContext(["main": main]);
         assertThrownMsg!PreprocessException(
-            "Error processing main(2,1): This unit test should fail?",
+            "Error processing main(1,49): This unit test should fail?",
             preprocess(context)
         );
     }
@@ -1053,7 +1053,7 @@ version (unittest) {
     unittest {
         auto main = "
             #ifdef __WINDOWS__
-                #error We don't support windows here!
+                #error \"We don't support windows here!\"
             #endif
 
             Zen
@@ -1067,7 +1067,7 @@ version (unittest) {
     @("Error directive in include is thrown from include name, not main")
     unittest {
         auto include = "
-            #error Should say include.h
+            #error \"Should say include.h\"
         ";
 
         auto main = "
@@ -1079,7 +1079,7 @@ version (unittest) {
         context.sources = ["include.h": include];
 
         assertThrownMsg!PreprocessException(
-            "Error processing include.h(2,1): Should say include.h",
+            "Error processing include.h(1,42): Should say include.h",
             preprocess(context)
         );
     }

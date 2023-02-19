@@ -12,7 +12,7 @@ module preprocessor.processing;
 import preprocessor.artifacts : BuildContext, PreprocessException, ParseException, FileMacro, LineMacro, MacroMap,
     builtInMacros;
 import preprocessor.parsing : ParseContext, parse, collect, DirectiveStart, MacroStartEnd, skipWhiteSpaceTillEol, peek,
-    replaceStartToEnd, clearStartToEnd, endOfLineDelims, peekLast, seekNextDirective, calculateLineColumn;
+    replaceStartToEnd, clearStartToEnd, endOfLineDelims, peekLast, seekNextDirective, calculateLineColumn, seekNext;
 import preprocessor.debugging;
 
 import std.conv : to;
@@ -266,7 +266,8 @@ private void processUndefDirective(ref ParseContext parseCtx) {
 }
 
 private void processErrorDirective(ref ParseContext parseCtx) {
-    auto errorMessage = parseCtx.collect(endOfLineDelims);
+    parseCtx.seekNext('"');
+    auto errorMessage = parseCtx.collect(endOfLineDelims ~ '"');
     throw new PreprocessException(parseCtx, errorMessage);
 }
 
