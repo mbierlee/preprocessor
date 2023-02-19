@@ -22,6 +22,15 @@
       "importPaths": ["source"],
       "targetPath": "bin/examples/c",
       "stringImportPaths": ["examplesource/c"]
+    },
+    {
+      "name": "advancedCExample",
+      "targetType": "executable",
+      "targetName": "advancedCExample",
+      "sourcePaths": ["examples/advancedC"],
+      "importPaths": ["source"],
+      "targetPath": "bin/examples/c",
+      "stringImportPaths": ["examplesource/c"]
     }
   ]
 }

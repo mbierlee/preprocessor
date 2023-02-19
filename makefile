@@ -11,7 +11,11 @@ test:
 clean:
 	dub clean	
 
-run-examples: run-cExample
+run-examples: run-simpleCExample \
+	run-advancedCExample
 
 run-simpleCExample:
 	dub run --build=release --config=simpleCExample
+
+run-advancedCExample:
+	dub run --build=release --config=advancedCExample
