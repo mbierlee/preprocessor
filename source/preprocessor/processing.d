@@ -196,12 +196,12 @@ private void processConditionalDirective(ref ParseContext parseCtx, const bool n
     parseCtx.codePos -= 1;
     parseCtx.skipWhiteSpaceTillEol();
 
-    enum StartIfBlockDirective = "startif"; // or ifdef/ifndef
-    auto conditionalDirective = StartIfBlockDirective;
+    enum ConditionalBlockStartDirective = "startconditional";
+    auto conditionalDirective = ConditionalBlockStartDirective;
     bool acceptedBody = false;
     bool processedElse = false;
     while (conditionalDirective != EndIfDirective) {
-        if (conditionalDirective == StartIfBlockDirective || conditionalDirective == ElIfDirective) {
+        if (conditionalDirective == ConditionalBlockStartDirective || conditionalDirective == ElIfDirective) {
             bool isTrue = evaluateCondition(parseCtx, negate, onlyCheckExistence);
             if (isTrue && !acceptedBody) {
                 parseCtx.acceptConditionalBody();
