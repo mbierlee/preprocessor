@@ -9,7 +9,8 @@
 
 module preprocessor.processing;
 
-import preprocessor.artifacts : BuildContext, PreprocessException, ParseException, FileMacro, LineMacro, MacroMap;
+import preprocessor.artifacts : BuildContext, PreprocessException, ParseException, FileMacro, LineMacro, MacroMap,
+    builtInMacros;
 import preprocessor.parsing : ParseContext, parse, collect, DirectiveStart, MacroStartEnd, skipWhiteSpaceTillEol, peek,
     replaceStartToEnd, clearStartToEnd, endOfLineDelims, peekLast, seekNextDirective, calculateLineColumn;
 import preprocessor.debugging;
@@ -238,6 +239,8 @@ private void processDefineDirective(ref ParseContext parseCtx) {
         throw new ParseException(parseCtx, "#define directive is missing name of macro.");
     }
 
+    assertNotBuiltinMacro(parseCtx, macroName);
+
     string macroValue = null;
     auto isEndOfDefinition = endOfLineDelims.canFind(parseCtx.peekLast);
     if (!isEndOfDefinition) {
@@ -254,6 +257,8 @@ private void processUndefDirective(ref ParseContext parseCtx) {
     if (macroName.length == 0) {
         throw new ParseException(parseCtx, "#undef directive is missing name of macro.");
     }
+
+    assertNotBuiltinMacro(parseCtx, macroName);
 
     parseCtx.macros.remove(macroName);
     parseCtx.replaceEnd = parseCtx.codePos;
@@ -338,4 +343,10 @@ private void expandMacro(ref ParseContext parseCtx) {
 
     parseCtx.source.replaceInPlace(macroStart, macroEnd, macroValue);
     parseCtx.codePos = macroStart + macroValue.length;
+}
+
+private void assertNotBuiltinMacro(ref ParseContext parseCtx, string macroName) {
+    if (builtInMacros.canFind(macroName)) {
+        throw new PreprocessException(parseCtx, "Cannot use macro name '" ~ macroName ~ "', it is a built-in macro.");
+    }
 }

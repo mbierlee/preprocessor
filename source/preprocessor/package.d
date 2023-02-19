@@ -1006,6 +1006,32 @@ version (unittest) {
         assert(result["main"].stripAllWhiteSpace == "submain");
     }
 
+    @("Prevent definition of built-in macros")
+    unittest {
+        auto main = "
+            #define FILE anotherfile.c
+        ";
+
+        auto context = BuildContext(["main": main]);
+        assertThrownMsg!PreprocessException(
+            "Error processing main(1,26): Cannot use macro name 'FILE', it is a built-in macro.",
+            preprocess(context)
+        );
+    }
+
+    @("Prevent undefinition of built-in macros")
+    unittest {
+        auto main = "
+            #undef FILE
+        ";
+
+        auto context = BuildContext(["main": main]);
+        assertThrownMsg!PreprocessException(
+            "Error processing main(2,1): Cannot use macro name 'FILE', it is a built-in macro.",
+            preprocess(context)
+        );
+    }
+
 }
 
 // Error tests

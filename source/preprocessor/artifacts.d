@@ -22,6 +22,10 @@ enum DateMacro = "DATE";
 enum TimeMacro = "TIME";
 enum TimestampMacro = "TIMESTAMP";
 
+static const string[] builtInMacros = [
+    FileMacro, LineMacro, DateMacro, TimeMacro, TimestampMacro
+];
+
 /**
  * A context containing information regarding the build process,
  * such a source files.
