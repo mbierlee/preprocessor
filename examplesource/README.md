@@ -1,0 +1,1 @@
+These are input files used in the D examples in `examples/`.

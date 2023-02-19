@@ -13,6 +13,15 @@
     {
       "name": "unittest",
       "targetType": "library"
+    },
+    {
+      "name": "simpleCExample",
+      "targetType": "executable",
+      "targetName": "simpleCExample",
+      "sourcePaths": ["examples/simpleC"],
+      "importPaths": ["source"],
+      "targetPath": "bin/examples/c",
+      "stringImportPaths": ["examplesource/c"]
     }
   ]
 }
