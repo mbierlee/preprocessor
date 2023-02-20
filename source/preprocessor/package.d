@@ -389,7 +389,7 @@ version (unittest) {
         auto context = BuildContext(["main": main]);
 
         assertThrownMsg!ParseException(
-            "Error processing main(0,5): Parse error: #endif directive found without accompanying starting conditional (#if/#ifdef)",
+            "Error processing main(0,5): Parse error: #else directive found without accompanying starting conditional (#if/#ifdef)",
             preprocess(context)
         );
     }
@@ -400,7 +400,7 @@ version (unittest) {
         auto context = BuildContext(["main": main]);
 
         assertThrownMsg!ParseException(
-            "Error processing main(0,5): Parse error: #endif directive found without accompanying starting conditional (#if/#ifdef)",
+            "Error processing main(0,5): Parse error: #elif directive found without accompanying starting conditional (#if/#ifdef)",
             preprocess(context)
         );
     }

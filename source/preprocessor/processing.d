@@ -300,7 +300,7 @@ private void processPragmaDirective(ref ParseContext parseCtx) {
 
 private void processUnexpectedConditional(const ref ParseContext parseCtx, const ref BuildContext buildCtx) {
     if (buildCtx.enableConditionalDirectives && !buildCtx.ignoreUnmatchedConditionalDirectives) {
-        throw new ParseException(parseCtx, "#endif directive found without accompanying starting conditional (#if/#ifdef)");
+        throw new ParseException(parseCtx, "#" ~ parseCtx.directive ~ " directive found without accompanying starting conditional (#if/#ifdef)");
     }
 }
 
