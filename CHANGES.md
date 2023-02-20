@@ -1,6 +1,6 @@
 # Changelog
 
-**Version 1.0.0** (???)
+**Version 1.0.0** (20-02-2023)
 
 - Initial release
 - ADD conditional directives (`#if`/`#ifdef`/`#ifndef`)
