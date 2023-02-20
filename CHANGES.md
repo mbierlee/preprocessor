@@ -1,5 +1,9 @@
 # Changelog
 
+**Version 1.1.0** (21-02-2023)
+
+- ADD ability to enable or disable any or all directives in BuildContext
+
 **Version 1.0.0** (20-02-2023)
 
 - Initial release
