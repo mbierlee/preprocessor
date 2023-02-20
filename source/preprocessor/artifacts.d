@@ -28,17 +28,17 @@ static const string[] builtInMacros = [
 
 /**
  * A context containing information regarding the build process,
- * such a source files.
+ * such a sources.
  */
 struct BuildContext {
-    /// Sources to be processed
+    /// Sources to be processed.
     SourceMap sources;
 
     /** 
      * When specified, only these sources will be processed.
      * Sources specified in "sources" will still be able to be included
      * and processed, but are treated as libraries.
-     * When empty, all sources in "sources" will be processed.
+     * When empty, all sources in "sources" will be processed instead.
      */
     SourceMap mainSources;
 
@@ -50,12 +50,12 @@ struct BuildContext {
 
     /**
      * The maximum amount of inclusions allowed. This is to prevent 
-     * an endless inclusion cycle.
+     * an endless inclusion cycle. Defaults to 4000.
      */
     uint inclusionLimit = 4000;
 
     /** 
-     * Whether the parser should ignore #elseif, #else and #endif
+     * Whether the parser should ignore #elif, #else and #endif
      * directives that didn't come after a #if directive.
      * If true they will be kept in the result.
      */

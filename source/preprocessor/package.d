@@ -675,7 +675,7 @@ version (unittest) {
         assert(result["main"].strip == "That's no moon, it's a space station!");
     }
 
-    @("Include elseif body in if block if else if is true")
+    @("Include elif body in if block if else if is true")
     unittest {
         auto main = "
             #if MOON
