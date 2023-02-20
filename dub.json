@@ -3,7 +3,7 @@
   "description": "A language agnostic, C-like preprocessor for D",
   "copyright": "Copyright © 2023, Mike Bierlee",
   "authors": ["Mike Bierlee"],
-  "license": "mit",
+  "license": "MIT",
   "targetPath": "bin",
   "configurations": [
     {
