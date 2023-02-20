@@ -60,6 +60,50 @@ struct BuildContext {
      * If true they will be kept in the result.
      */
     bool ignoreUnmatchedConditionalDirectives = false;
+
+    /// Wheter to enable processing of #include directives.
+    bool enableIncludeDirectives = true;
+
+    /// Wheter to enable processing of conditional directives.
+    bool enableConditionalDirectives = true;
+
+    /// Wheter to enable processing of #define directives.
+    bool enableMacroDefineDirectives = true;
+
+    /// Wheter to enable processing of #undef directives.
+    bool enableMacroUndefineDirectives = true;
+
+    /// Wheter to enable processing of #error directives.
+    bool enableErrorDirectives = true;
+
+    /// Wheter to enable processing of #pragma directives.
+    bool enablePragmaDirectives = true;
+
+    /** 
+     * Disables all directives.
+     * They can then be individually enabled again.
+     */
+    void disableAllDirectives() {
+        enableIncludeDirectives = false;
+        enableConditionalDirectives = false;
+        enableMacroDefineDirectives = false;
+        enableMacroUndefineDirectives = false;
+        enableErrorDirectives = false;
+        enablePragmaDirectives = false;
+    }
+
+    /** 
+     * Enables all directives.
+     * They can then be individually disabled again.
+     */
+    void enableAllDirectives() {
+        enableIncludeDirectives = true;
+        enableConditionalDirectives = true;
+        enableMacroDefineDirectives = true;
+        enableMacroUndefineDirectives = true;
+        enableErrorDirectives = true;
+        enablePragmaDirectives = true;
+    }
 }
 
 /** 

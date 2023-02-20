@@ -121,9 +121,7 @@ version (unittest) {
     @("Ignore unknown directive")
     unittest {
         auto main = "#banana rama";
-        auto context = BuildContext([
-                "main.txt": main
-            ]);
+        auto context = BuildContext(["main.txt": main]);
 
         auto result = preprocess(context).sources["main.txt"];
         assert(result == main);
@@ -146,6 +144,93 @@ version (unittest) {
 
         auto result = preprocess(context).sources;
         assert(result["main"] == roses);
+    }
+
+    @("Ignore #include directive when disabled")
+    unittest {
+        auto main = "#include <libby>";
+        auto context = BuildContext(["main": main]);
+        context.enableIncludeDirectives = false;
+
+        auto result = preprocess(context).sources;
+        assert(result["main"] == main);
+    }
+
+    @("Ignore conditional directives when disabled")
+    unittest {
+        auto main = "
+        #if LALA
+            lele
+        #endif
+        #ifdef LULU
+            LOLO
+        #endif
+        #else
+        #elif
+        ";
+        auto context = BuildContext(["main": main]);
+        context.enableConditionalDirectives = false;
+
+        auto result = preprocess(context).sources;
+        assert(result["main"] == main);
+    }
+
+    @("Ignore #define/#undef directives when disabled")
+    unittest {
+        auto main = "
+            #define LALA
+            #undef LALA
+        ";
+        auto context = BuildContext(["main": main]);
+        context.enableMacroDefineDirectives = false;
+        context.enableMacroUndefineDirectives = false;
+
+        auto result = preprocess(context).sources;
+        assert(result["main"] == main);
+    }
+
+    @("Ignore #error directives when disabled")
+    unittest {
+        auto main = "#error \"I am error\"";
+        auto context = BuildContext(["main": main]);
+        context.enableErrorDirectives = false;
+
+        auto result = preprocess(context).sources;
+        assert(result["main"] == main);
+    }
+
+    @("Ignore #pragma directives when disabled")
+    unittest {
+        auto main = "#pragma twice, or three times?";
+        auto context = BuildContext(["main": main]);
+        context.enablePragmaDirectives = false;
+
+        auto result = preprocess(context).sources;
+        assert(result["main"] == main);
+    }
+
+    @("Ignore all directives when disabled")
+    unittest {
+        auto main = "
+            #include
+            #if
+            #elif
+            #else
+            #endif
+            #define
+            #undef
+            #dunno
+            #pragma
+            #ifdef
+            #ifndef
+            #error
+        ";
+
+        auto context = BuildContext(["main": main]);
+        context.disableAllDirectives();
+
+        auto result = preprocess(context).sources;
+        assert(result["main"] == main);
     }
 }
 

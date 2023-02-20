@@ -90,21 +90,29 @@ package void processFile(
 private void processDirective(ref ParseContext parseCtx, const ref BuildContext buildCtx) {
     switch (parseCtx.directive) {
     case IncludeDirective:
-        processInclude(parseCtx, buildCtx);
+        if (buildCtx.enableIncludeDirectives) {
+            processInclude(parseCtx, buildCtx);
+        }
         break;
 
     case IfDirective:
     case IfDefDirective:
     case IfNDefDirective:
-        processConditionalDirective(parseCtx, parseCtx.directive);
+        if (buildCtx.enableConditionalDirectives) {
+            processConditionalDirective(parseCtx, parseCtx.directive);
+        }
         break;
 
     case DefineDirective:
-        processDefineDirective(parseCtx);
+        if (buildCtx.enableMacroDefineDirectives) {
+            processDefineDirective(parseCtx);
+        }
         break;
 
     case UndefDirective:
-        processUndefDirective(parseCtx);
+        if (buildCtx.enableMacroUndefineDirectives) {
+            processUndefDirective(parseCtx);
+        }
         break;
 
     case EndIfDirective:
@@ -120,11 +128,15 @@ private void processDirective(ref ParseContext parseCtx, const ref BuildContext 
         break;
 
     case ErrorDirective:
-        processErrorDirective(parseCtx);
+        if (buildCtx.enableErrorDirectives) {
+            processErrorDirective(parseCtx);
+        }
         break;
 
     case PragmaDirective:
-        processPragmaDirective(parseCtx);
+        if (buildCtx.enablePragmaDirectives) {
+            processPragmaDirective(parseCtx);
+        }
         break;
 
     default:
@@ -287,7 +299,7 @@ private void processPragmaDirective(ref ParseContext parseCtx) {
 }
 
 private void processUnexpectedConditional(const ref ParseContext parseCtx, const ref BuildContext buildCtx) {
-    if (!buildCtx.ignoreUnmatchedConditionalDirectives) {
+    if (buildCtx.enableConditionalDirectives && !buildCtx.ignoreUnmatchedConditionalDirectives) {
         throw new ParseException(parseCtx, "#endif directive found without accompanying starting conditional (#if/#ifdef)");
     }
 }
