@@ -70,7 +70,7 @@ package void processFile(
             parseCtx.directive = "";
             parseCtx.replaceStart = 0;
             parseCtx.replaceEnd = 0;
-        } else if (chr == MacroStartEnd) {
+        } else if (chr == MacroStartEnd && buildCtx.enableMacroExpansion) {
             if (foundMacroTokenBefore) {
                 expandMacro(parseCtx);
                 foundMacroTokenBefore = false;

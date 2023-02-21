@@ -79,6 +79,9 @@ struct BuildContext {
     /// Wheter to enable processing of #pragma directives.
     bool enablePragmaDirectives = true;
 
+    /// Wheter to enable macro expansion.
+    bool enableMacroExpansion = true;
+
     /** 
      * Disables all directives.
      * They can then be individually enabled again.

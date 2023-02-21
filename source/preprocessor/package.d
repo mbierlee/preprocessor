@@ -232,6 +232,19 @@ version (unittest) {
         auto result = preprocess(context).sources;
         assert(result["main"] == main);
     }
+
+    @("Ignore macro expansion when disabled")
+    unittest {
+        auto main = "
+            __THE_BIG_FOX_JUMPS_OVER_THE_HUNGRY_DOG__
+        ";
+
+        auto context = BuildContext(["main": main]);
+        context.enableMacroExpansion = false;
+
+        auto result = preprocess(context).sources;
+        assert(result["main"] == main);
+    }
 }
 
 // Includes tests
