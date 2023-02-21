@@ -10,6 +10,6 @@ A language-agnostic preprocessor library for D. It allows you to pre-process cod
 
 See the `examples/` directory for how to use it and [SPECS.md](SPECS.md) for more details on what is supported in the pre-processing language. Finally, if you want to see some detailed examples, see the unittests in [source/preprocessor/package.d](package.d).
 
-## Projects Using The Pre-Processor
+## Projects Using The Preprocessor
 
 - [The Retrograde Game Engine](https://github.com/mbierlee/retrograde): General purpose game engine.
