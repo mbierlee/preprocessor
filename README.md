@@ -1,6 +1,6 @@
 # Language-agnostic Preprocessor for D
 
-Version 1.1.0  
+Version 1.2.0  
 Copyright 2023 Mike Bierlee  
 Licensed under the terms of the MIT license - See [LICENSE.txt](LICENSE.txt)
 

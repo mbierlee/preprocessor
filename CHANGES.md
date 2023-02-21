@@ -1,5 +1,9 @@
 # Changelog
 
+**Version 1.2.0** (21-02-2023)
+
+- ADD ability to enable or disable macro expansion via BuildContext
+
 **Version 1.1.0** (21-02-2023)
 
 - ADD ability to enable or disable any or all directives via BuildContext
