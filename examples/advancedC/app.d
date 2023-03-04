@@ -11,7 +11,9 @@ import preprocessor;
 
 import std.stdio;
 
-//Note: the C code may not compile, I can't be bothered with writing proper C!
+// Note: the C code may not compile, I can't be bothered with writing proper C!
+
+// See "examplesource/c" for the sources of these C files.
 
 void main() {
     auto loggingh = import("logging.h");
