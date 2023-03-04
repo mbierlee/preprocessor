@@ -1,4 +1,4 @@
-To run any of these examples, specify the relevant DUB configuration:
+To run any of these examples, go to the repository root and specify a DUB configuration:
 ```
 dub run --build=release --config=<name>Example
 ```
