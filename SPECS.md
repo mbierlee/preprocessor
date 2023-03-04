@@ -127,11 +127,11 @@ _main.c_
 #endif
 
 #undef DO_THING
-#ifndef
+#ifndef DO_THING
 // This code will be included, since the macro is not longer defined.
 #endif
 
-#define the_truth some text string here
+#define the_truth "some text string here"
 // Macro the_truth contains the whole string "some text string here".
 
 #if the_truth
@@ -207,7 +207,7 @@ _lib.h_
 // Contents that are only to be included once.
 ```
 
-The pragma can be put anywhere in the source and even be conditionally used. It is customary to use it at the top of a source.
+The pragma can be put anywhere in the source and even be inside conditional directives. It is customary to use it at the top of a source.
 
 ## Macro Expansion
 
@@ -223,7 +223,7 @@ int main() {
 }
 ```
 
-When used in conditional directives, they can be used either with or without underscores:
+When used with conditional directives, they can be used either with or without underscores:
 
 _main.c_
 
@@ -240,7 +240,6 @@ _main.c_
 
 #if DEBUG_MODE
 // Contents will be in source
-
 #endif
 
 #if __DEBUG_MODE__
