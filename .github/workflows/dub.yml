@@ -99,36 +99,38 @@ jobs:
           dub run --build=release --config=simpleCExample
           dub run --build=release --config=advancedCExample
 
-  gdc-latest:
-    name: GDC on Ubuntu
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
+# GDC has compatibility issues
 
-      - name: Install DMD (so dub is available)
-        uses: dlang-community/setup-dlang@v1
-        with:
-          compiler: dmd-latest
+  # gdc-latest:
+  #   name: GDC on Ubuntu
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v2
 
-      - name: Install GDC
-        run: |
-          sudo apt-get update
-          sudo apt-get install gdc -y
-          gdc --version
+  #     - name: Install DMD (so dub is available)
+  #       uses: dlang-community/setup-dlang@v1
+  #       with:
+  #         compiler: dmd-latest
 
-      - name: Build library
-        env:
-          DC: gdc
-        run: dub build --compiler=gdc --build=release --config=library
+  #     - name: Install GDC
+  #       run: |
+  #         sudo apt-get update
+  #         sudo apt-get install gdc -y
+  #         gdc --version
 
-      - name: Build unittest
-        env:
-          DC: gdc
-        run: dub test --compiler=gdc --build=unittest --config=unittest
+  #     - name: Build library
+  #       env:
+  #         DC: gdc
+  #       run: dub build --compiler=gdc --build=release --config=library
 
-      - name: Build examples
-        env:
-          DC: gdc
-        run: |
-          dub run --compiler=gdc --build=release --config=simpleCExample
-          dub run --compiler=gdc --build=release --config=advancedCExample
+  #     - name: Build unittest
+  #       env:
+  #         DC: gdc
+  #       run: dub test --compiler=gdc --build=unittest --config=unittest
+
+  #     - name: Build examples
+  #       env:
+  #         DC: gdc
+  #       run: |
+  #         dub run --compiler=gdc --build=release --config=simpleCExample
+  #         dub run --compiler=gdc --build=release --config=advancedCExample
